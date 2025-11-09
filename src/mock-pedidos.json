@@ -1,0 +1,261 @@
+{
+  "pedidos": [
+    {
+      "id": "1A2345",
+      "status": "EM_AGUARDO",
+      "itens": [
+        { "nome": "X-Burger Especial", "quantidade": 2, "preco": 18.90 },
+        { "nome": "Coca-Cola 350ml", "quantidade": 2, "preco": 6.00 }
+      ],
+      "pagamento": "Cartão de Crédito",
+      "entrega": "Delivery",
+      "observacoes": "Sem cebola no burger",
+      "criadoEm": "2024-01-15T10:05:00.000Z"
+    },
+    {
+      "id": "2B3456",
+      "status": "EM_AGUARDO",
+      "itens": [
+        { "nome": "X-Tudo", "quantidade": 1, "preco": 28.90 },
+        { "nome": "Batata Frita Grande", "quantidade": 1, "preco": 12.00 },
+        { "nome": "Suco Natural Laranja", "quantidade": 1, "preco": 8.00 }
+      ],
+      "pagamento": "PIX",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T10:08:00.000Z"
+    },
+    {
+      "id": "3C4567",
+      "status": "EM_AGUARDO",
+      "itens": [
+        { "nome": "X-Salada", "quantidade": 3, "preco": 15.90 },
+        { "nome": "Refrigerante Lata", "quantidade": 3, "preco": 5.00 }
+      ],
+      "pagamento": "Dinheiro",
+      "entrega": "Delivery",
+      "observacoes": "Troco para R$ 100,00",
+      "criadoEm": "2024-01-15T10:12:00.000Z"
+    },
+    {
+      "id": "4D5678",
+      "status": "EM_PREPARO",
+      "itens": [
+        { "nome": "X-Bacon Duplo", "quantidade": 2, "preco": 24.90 },
+        { "nome": "Onion Rings", "quantidade": 2, "preco": 14.00 }
+      ],
+      "pagamento": "Cartão de Débito",
+      "entrega": "Delivery",
+      "observacoes": "Bacon bem passado",
+      "criadoEm": "2024-01-15T09:55:00.000Z"
+    },
+    {
+      "id": "5E6789",
+      "status": "EM_PREPARO",
+      "itens": [
+        { "nome": "X-Frango Grelhado", "quantidade": 1, "preco": 19.90 },
+        { "nome": "Batata Frita Média", "quantidade": 1, "preco": 9.00 },
+        { "nome": "Coca-Cola 600ml", "quantidade": 1, "preco": 8.00 }
+      ],
+      "pagamento": "PIX",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T09:50:00.000Z"
+    },
+    {
+      "id": "6F7890",
+      "status": "EM_PREPARO",
+      "itens": [
+        { "nome": "X-Veggie", "quantidade": 2, "preco": 19.90 },
+        { "nome": "Suco Natural Morango", "quantidade": 2, "preco": 9.00 }
+      ],
+      "pagamento": "Cartão de Crédito",
+      "entrega": "Delivery",
+      "observacoes": "Sem maionese",
+      "criadoEm": "2024-01-15T09:48:00.000Z"
+    },
+    {
+      "id": "7G8901",
+      "status": "EM_PREPARO",
+      "itens": [
+        { "nome": "X-Picanha Premium", "quantidade": 1, "preco": 34.90 },
+        { "nome": "Batata Rústica", "quantidade": 1, "preco": 15.00 },
+        { "nome": "Milkshake Chocolate", "quantidade": 1, "preco": 14.00 }
+      ],
+      "pagamento": "Cartão de Crédito",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T09:45:00.000Z"
+    },
+    {
+      "id": "8H9012",
+      "status": "PRONTO",
+      "itens": [
+        { "nome": "X-Burger Cheddar", "quantidade": 1, "preco": 18.90 },
+        { "nome": "Coca-Cola 350ml", "quantidade": 1, "preco": 6.00 }
+      ],
+      "pagamento": "Dinheiro",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T09:30:00.000Z"
+    },
+    {
+      "id": "9I0123",
+      "status": "PRONTO",
+      "itens": [
+        { "nome": "X-Calabresa", "quantidade": 2, "preco": 20.90 },
+        { "nome": "Batata Frita Grande", "quantidade": 1, "preco": 12.00 },
+        { "nome": "Guaraná 2L", "quantidade": 1, "preco": 10.00 }
+      ],
+      "pagamento": "PIX",
+      "entrega": "Delivery",
+      "observacoes": "Pimenta calabresa extra",
+      "criadoEm": "2024-01-15T09:25:00.000Z"
+    },
+    {
+      "id": "0J1234",
+      "status": "PRONTO",
+      "itens": [
+        { "nome": "X-Egg Bacon", "quantidade": 3, "preco": 17.90 }
+      ],
+      "pagamento": "Cartão de Débito",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T09:28:00.000Z"
+    },
+    {
+      "id": "1K2345",
+      "status": "EM_ROTA",
+      "itens": [
+        { "nome": "X-Tudo Especial", "quantidade": 1, "preco": 32.90 },
+        { "nome": "Onion Rings", "quantidade": 1, "preco": 14.00 },
+        { "nome": "Suco Natural Abacaxi", "quantidade": 1, "preco": 8.00 }
+      ],
+      "pagamento": "PIX",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T09:15:00.000Z"
+    },
+    {
+      "id": "2L3456",
+      "status": "EM_ROTA",
+      "itens": [
+        { "nome": "X-Bacon", "quantidade": 2, "preco": 22.50 },
+        { "nome": "Batata Frita Média", "quantidade": 2, "preco": 9.00 },
+        { "nome": "Coca-Cola 350ml", "quantidade": 2, "preco": 6.00 }
+      ],
+      "pagamento": "Cartão de Crédito",
+      "entrega": "Delivery",
+      "observacoes": "Entregar no portão",
+      "criadoEm": "2024-01-15T09:10:00.000Z"
+    },
+    {
+      "id": "3M4567",
+      "status": "EM_ROTA",
+      "itens": [
+        { "nome": "X-Frango", "quantidade": 1, "preco": 16.90 },
+        { "nome": "Água Mineral 500ml", "quantidade": 1, "preco": 3.00 }
+      ],
+      "pagamento": "Dinheiro",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T09:12:00.000Z"
+    },
+    {
+      "id": "4N5678",
+      "status": "COMPLETO",
+      "itens": [
+        { "nome": "X-Burger", "quantidade": 2, "preco": 16.90 },
+        { "nome": "Refrigerante Lata", "quantidade": 2, "preco": 5.00 }
+      ],
+      "pagamento": "PIX",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T08:45:00.000Z"
+    },
+    {
+      "id": "5O6789",
+      "status": "COMPLETO",
+      "itens": [
+        { "nome": "X-Salada Light", "quantidade": 1, "preco": 15.90 },
+        { "nome": "Suco Natural Detox", "quantidade": 1, "preco": 10.00 }
+      ],
+      "pagamento": "Cartão de Débito",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T08:30:00.000Z"
+    },
+    {
+      "id": "6P7890",
+      "status": "COMPLETO",
+      "itens": [
+        { "nome": "X-Tudo", "quantidade": 3, "preco": 28.90 },
+        { "nome": "Batata Frita Grande", "quantidade": 2, "preco": 12.00 },
+        { "nome": "Coca-Cola 2L", "quantidade": 1, "preco": 12.00 }
+      ],
+      "pagamento": "Cartão de Crédito",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T08:20:00.000Z"
+    },
+    {
+      "id": "7Q8901",
+      "status": "COMPLETO",
+      "itens": [
+        { "nome": "X-Bacon Duplo", "quantidade": 1, "preco": 24.90 }
+      ],
+      "pagamento": "PIX",
+      "entrega": "Delivery",
+      "criadoEm": "2024-01-15T08:15:00.000Z"
+    },
+    {
+      "id": "8R9012",
+      "status": "CANCELADO",
+      "itens": [
+        { "nome": "X-Burger", "quantidade": 1, "preco": 16.90 },
+        { "nome": "Coca-Cola 350ml", "quantidade": 1, "preco": 6.00 }
+      ],
+      "pagamento": "Dinheiro",
+      "entrega": "Delivery",
+      "observacoes": "Cliente desistiu da compra",
+      "criadoEm": "2024-01-15T09:40:00.000Z"
+    },
+    {
+      "id": "9S0123",
+      "status": "CANCELADO",
+      "itens": [
+        { "nome": "X-Veggie", "quantidade": 2, "preco": 19.90 },
+        { "nome": "Suco Natural", "quantidade": 2, "preco": 8.00 }
+      ],
+      "pagamento": "PIX",
+      "entrega": "Delivery",
+      "observacoes": "Erro no pedido - cliente solicitou cancelamento",
+      "criadoEm": "2024-01-15T09:20:00.000Z"
+    },
+    {
+      "id": "0T1234",
+      "status": "CANCELADO",
+      "itens": [
+        { "nome": "X-Calabresa", "quantidade": 1, "preco": 20.90 }
+      ],
+      "pagamento": "Cartão",
+      "entrega": "Delivery",
+      "observacoes": "Fora da área de entrega",
+      "criadoEm": "2024-01-15T09:00:00.000Z"
+    },
+    {
+      "id": "1U2345",
+      "status": "CANCELADO",
+      "itens": [
+        { "nome": "X-Frango Grelhado", "quantidade": 2, "preco": 19.90 },
+        { "nome": "Batata Frita", "quantidade": 1, "preco": 9.00 }
+      ],
+      "pagamento": "Dinheiro",
+      "entrega": "Delivery",
+      "observacoes": "Tempo de espera muito longo",
+      "criadoEm": "2024-01-15T08:50:00.000Z"
+    },
+    {
+      "id": "2V3456",
+      "status": "CANCELADO",
+      "itens": [
+        { "nome": "X-Picanha Premium", "quantidade": 1, "preco": 34.90 },
+        { "nome": "Milkshake", "quantidade": 1, "preco": 14.00 }
+      ],
+      "pagamento": "Cartão",
+      "entrega": "Delivery",
+      "observacoes": "Cliente não atendeu telefone",
+      "criadoEm": "2024-01-15T08:40:00.000Z"
+    }
+  ]
+}
