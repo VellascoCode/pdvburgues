@@ -1,11 +1,12 @@
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import React from "react";
 import { signOut } from "next-auth/react";
 import { FaCheckCircle, FaMotorcycle, FaUtensils, FaClock, FaTimesCircle, FaSearch, FaBell, FaUser, FaSignOutAlt, FaHourglassHalf, FaShoppingBag, FaHamburger, FaCoffee, FaPlus, FaBan, FaTimes, FaEyeSlash } from "react-icons/fa";
 import type { IconType } from "react-icons";
 import { motion } from "framer-motion";
+import BgFood from "../components/BgFood";
 import {
   listarPedidos,
   salvarPedido,
@@ -14,9 +15,8 @@ import {
   Pedido,
 } from "../utils/indexedDB";
 import PedidoCard from "../components/PedidoCard";
+import PedidoDetalhesModal from "../components/PedidoDetalhesModal";
 import { pedidoEstaAtrasado } from "../utils/pedidoTempo";
-import mockData from "../mock-pedidos.json";
-type MockData = { pedidos: Pedido[] };
 
 const statusList: {
   key: string;
@@ -80,7 +80,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: IconType, label: 
 
 import { playUiSound } from "../utils/sound";
 
-function Header({ onSearch, hiddenCols, onUnhide }: { onSearch: (term: string) => void; hiddenCols: string[]; onUnhide: (key: string) => void; }) {
+function Header({ onSearch, hiddenCols, onUnhide, onNovoPedido, onSeed, seedDisabled }: { onSearch: (term: string) => void; hiddenCols: string[]; onUnhide: (key: string) => void; onNovoPedido: () => void; onSeed: () => void; seedDisabled: boolean; }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [openCols, setOpenCols] = useState(false);
 
@@ -119,6 +119,22 @@ function Header({ onSearch, hiddenCols, onUnhide }: { onSearch: (term: string) =
 
           {/* Actions */}
           <div className="flex items-center gap-3 relative">
+            <button
+              className="px-3 py-2 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-600/40 flex items-center gap-2"
+              onMouseEnter={() => playUiSound('hover')}
+              onClick={() => { playUiSound('click'); onNovoPedido(); }}
+            >
+              + Novo Pedido
+            </button>
+            <button
+              className={`px-3 py-2 rounded-lg border ${seedDisabled ? 'bg-zinc-900/50 text-zinc-500 border-zinc-800 cursor-not-allowed' : 'bg-zinc-800/50 hover:bg-zinc-800 text-zinc-300 border-zinc-700'}`}
+              onMouseEnter={() => { if (!seedDisabled) playUiSound('hover'); }}
+              onClick={() => { if (!seedDisabled) { playUiSound('click'); onSeed(); } }}
+              title={seedDisabled ? 'Desabilitado: já existem pedidos no banco' : 'Popular banco com mock'}
+              disabled={seedDisabled}
+            >
+              Popular Banco
+            </button>
             <button className="relative p-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-400 hover:text-zinc-200" onMouseEnter={() => playUiSound('hover')} onClick={() => playUiSound('click')}>
               <FaBell className="text-lg" />
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full text-white text-[10px] flex items-center justify-center font-bold">
@@ -138,18 +154,30 @@ function Header({ onSearch, hiddenCols, onUnhide }: { onSearch: (term: string) =
               Colunas {hiddenCols.length > 0 ? `(${hiddenCols.length})` : ''}
             </button>
             {openCols && hiddenCols.length > 0 && (
-              <div className="absolute right-0 top-12 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl p-2 z-50 min-w-[220px]">
+              <div className="absolute right-0 top-12 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl p-2 z-50 min-w-60">
                 <div className="text-xs text-zinc-500 px-2 pb-1">Reexibir colunas</div>
-                {hiddenCols.map(key => (
-                  <button
-                    key={key}
-                    className="w-full text-left text-sm text-zinc-200 hover:bg-zinc-800 rounded-lg px-2 py-1.5"
-                    onMouseEnter={() => playUiSound('hover')}
-                    onClick={() => { playUiSound('click'); onUnhide(key); setOpenCols(false); }}
-                  >
-                    Mostrar {statusList.find(s=>s.key===key)?.label || key}
-                  </button>
-                ))}
+                {hiddenCols.map(key => {
+                  const meta = statusList.find(s=>s.key===key);
+                  const colorMap: Record<string,string> = {
+                    EM_AGUARDO:'text-gray-300 border-gray-500 bg-gray-500/15',
+                    EM_PREPARO:'text-orange-300 border-orange-500 bg-orange-500/15',
+                    PRONTO:'text-yellow-300 border-yellow-500 bg-yellow-500/15',
+                    EM_ROTA:'text-blue-300 border-blue-500 bg-blue-500/15',
+                    COMPLETO:'text-green-300 border-green-500 bg-green-500/15'
+                  };
+                  const cls = colorMap[key] || 'text-zinc-300 border-zinc-600 bg-zinc-700/15';
+                  return (
+                    <button
+                      key={key}
+                      className={`w-full text-left text-sm rounded-lg px-2 py-1.5 border ${cls} hover:opacity-90 flex items-center justify-between`}
+                      onMouseEnter={() => playUiSound('hover')}
+                      onClick={() => { playUiSound('click'); onUnhide(key); setOpenCols(false); }}
+                    >
+                      <span>{meta?.label || key}</span>
+                      <span className="text-xs opacity-80">Mostrar</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
             <button
@@ -229,13 +257,36 @@ export default function Dashboard() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [clock, setClock] = useState<number | null>(null);
+  const [serverCount, setServerCount] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCancelados, setShowCancelados] = useState(false);
   const [hiddenCols, setHiddenCols] = useState<string[]>([]);
   const [activeStatus, setActiveStatus] = useState<string[]>([]);
   const [onlyAtrasados, setOnlyAtrasados] = useState(false);
-  const [detalhePedido, setDetalhePedido] = useState<Pedido | null>(null);
+  const [detalheId, setDetalheId] = useState<string | null>(null);
   const [showMobileCols, setShowMobileCols] = useState(false);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [showNovo, setShowNovo] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // removido: savingDetalhe (controle agora dentro do modal separado)
+  const novoDefault = useMemo(() => ({
+    id: Math.random().toString(36).slice(2,8).toUpperCase(),
+    status: 'EM_AGUARDO',
+    itens: [
+      { nome: 'X-Burger', quantidade: 1, preco: 18.9 },
+      { nome: 'Coca-Cola 350ml', quantidade: 1, preco: 6 }
+    ],
+    pagamento: 'PENDENTE',
+    entrega: 'Delivery',
+    observacoes: '',
+    cliente: {
+      id: Math.random().toString(36).slice(2,6).toUpperCase(),
+      nick: ['Lobo','Raposa','Tigre','Leão','Falcão'][Math.floor(Math.random()*5)],
+      genero: ['M','F','O'][Math.floor(Math.random()*3)] as 'M'|'F'|'O',
+      estrelas: 4, gasto: 3, simpatia: 4,
+    },
+  } as unknown as Pedido), []);
+  const [novoPedido, setNovoPedido] = useState<Pedido>(novoDefault);
   
   const { status } = useSession({
     required: true,
@@ -255,31 +306,31 @@ export default function Dashboard() {
     if (status !== "authenticated") return;
     async function fetchPedidos() {
       setLoading(true);
-      const lista = await listarPedidos();
-      
-      const validStatuses = new Set(["EM_AGUARDO","EM_PREPARO","PRONTO","EM_ROTA","COMPLETO","CANCELADO"]);
-      const hasValid = lista.some(p => validStatuses.has(p.status));
-
-      // Se não houver dados, ou se todos estiverem em formatos antigos, recarrega do mock
-      if (lista.length === 0 || !hasValid) {
-        try {
-          await limparPedidos();
-        } catch {}
-        const pedidosMock: Pedido[] = (mockData as unknown as MockData).pedidos.map((p) => ({
-          ...p,
-          criadoEm: p.criadoEm || new Date().toISOString(),
-        }));
-        await Promise.all(pedidosMock.map(salvarPedido));
-        setPedidos(pedidosMock);
-      } else {
-        setPedidos(lista);
+      let lista: Pedido[] = [];
+      try {
+        const resp = await fetch('/api/pedidos');
+        if (resp.ok) {
+          lista = await resp.json();
+          setServerCount(Array.isArray(lista) ? lista.length : 0);
+          // Sincroniza IndexedDB somente com dados do servidor
+          try { await limparPedidos(); } catch {}
+          for (const p of lista) await salvarPedido(p);
+        } else {
+          // Fallback somente offline: mostra o que houver no IndexedDB (sem mock)
+          lista = await listarPedidos();
+        }
+      } catch {
+        // Offline: usa IndexedDB
+        lista = await listarPedidos();
       }
+      setPedidos(lista);
       setLoading(false);
     }
     fetchPedidos();
   }, [status]);
 
   const handleStatus = async (id: string, novoStatus: string) => {
+    try { await fetch(`/api/pedidos/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: novoStatus }) }); } catch {}
     await atualizarStatusPedido(id, novoStatus);
     const lista = await listarPedidos();
     setPedidos(lista);
@@ -352,8 +403,9 @@ export default function Dashboard() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-zinc-950 via-zinc-900 to-black">
-      <Header onSearch={setSearchTerm} hiddenCols={hiddenCols} onUnhide={(key)=> setHiddenCols(prev=> prev.filter(k=>k!==key))} />
+    <div className="min-h-screen bg-linear-to-br from-zinc-950 via-zinc-900/30 to-black relative">
+      <BgFood />
+      <Header onSearch={setSearchTerm} hiddenCols={hiddenCols} onUnhide={(key)=> setHiddenCols(prev=> prev.filter(k=>k!==key))} onNovoPedido={() => { setNovoPedido(novoDefault); setShowNovo(true); }} onSeed={async () => { try { await fetch('/api/pedidos/seed', { method: 'POST' }); } catch {} setTimeout(()=>window.location.reload(), 300); }} seedDisabled={serverCount > 0} />
       
       <main className="p-6">
         {/* Stats Cards */}
@@ -379,7 +431,6 @@ export default function Dashboard() {
           </button>
           <StatCard icon={FaCheckCircle} label="Vendidos" value={vendidos} color="border-green-500" />
           <StatCard icon={FaClock} label="Em Andamento" value={emAndamento} color="border-orange-500" />
-          <StatCard icon={FaClock} label="Atrasados" value={pedidosAtivos.filter(p => (clock ? pedidoEstaAtrasado(p, clock) : false) && p.status !== 'COMPLETO').length} color="border-red-500" />
         </div>
 
         {/* Chips de Filtro Rápido */}
@@ -409,17 +460,22 @@ export default function Dashboard() {
               </button>
             );
           })}
-          <button
-            className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition ${onlyAtrasados ? 'bg-red-600/20 text-red-300 border-red-500' : 'bg-transparent text-zinc-400 border-zinc-700 hover:text-zinc-200'}`}
-            onMouseEnter={() => playUiSound('hover')}
-            onClick={() => { playUiSound('click'); setOnlyAtrasados(v => !v); }}
-          >
-            Atrasados
-          </button>
+          {(() => {
+            const atrasadosCount = clock ? pedidosAtivos.filter(p => pedidoEstaAtrasado(p, clock) && p.status !== 'COMPLETO').length : 0;
+            return (
+              <button
+                className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition ${onlyAtrasados ? 'bg-red-600/20 text-red-300 border-red-500 animate-pulse' : 'bg-transparent text-zinc-400 border-zinc-700 hover:text-zinc-200'}`}
+                onMouseEnter={() => playUiSound('hover')}
+                onClick={() => { playUiSound('click'); setOnlyAtrasados(v => !v); }}
+              >
+                Atrasados ({atrasadosCount})
+              </button>
+            );
+          })()}
         </div>
 
         {/* Columns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
           {statusList.map(statusItem => {
             if (hiddenCols.includes(statusItem.key)) return null;
             if (activeStatus.length > 0 && !activeStatus.includes(statusItem.key)) return null;
@@ -451,7 +507,7 @@ export default function Dashboard() {
             return (
               <div key={statusItem.key} className="flex flex-col">
                 {/* Column Header */}
-                <div className={`${bgClass} border ${borderClass} rounded-xl p-4 mb-4 sticky top-[89px] z-10 backdrop-blur-xl shadow-lg  overflow-hidden`}>
+                <div className={`${bgClass} border ${borderClass} rounded-xl p-4 mb-4 sticky top-[89px] z-10 backdrop-blur-xl shadow-lg`}>
                   <div className="pointer-events-none absolute inset-0 opacity-10 bg-[radial-gradient(1000px_200px_at_-10%_-20%,#ffffff,transparent_60%)]" />
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
@@ -495,7 +551,12 @@ export default function Dashboard() {
                 </div>
 
                 {/* Orders */}
-                <div className={`space-y-0 overflow-y-auto overscroll-contain max-h-[calc(100vh-320px)] pr-0 ${scrollbarClasses}`}>
+                <div
+                  className={`space-y-0 overflow-y-auto overscroll-contain max-h-[calc(100vh-320px)] pr-0 ${scrollbarClasses} ${dragOverCol===statusItem.key ? 'outline-2 outline-offset-2 outline-current/50' : ''}`}
+                  onDragOver={(e)=>{ e.preventDefault(); setDragOverCol(statusItem.key); }}
+                  onDragLeave={()=> setDragOverCol(null)}
+                  onDrop={(e)=>{ e.preventDefault(); setDragOverCol(null); try { const id = e.dataTransfer.getData('application/x-pedido-id'); if (id) { handleStatus(id, statusItem.key); } } catch {} }}
+                >
                   {loading ? (
                     <div className="text-center py-12 text-zinc-600">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-3"></div>
@@ -514,7 +575,7 @@ export default function Dashboard() {
                         status={statusItem.key}
                         now={clock ?? 0}
                         onStatusChange={handleStatus}
-                        onOpenDetails={setDetalhePedido}
+                        onOpenDetails={(p)=> setDetalheId(p.id)}
                       />
                     ))
                   )}
@@ -589,81 +650,41 @@ export default function Dashboard() {
         onClose={() => setShowCancelados(false)}
         pedidos={pedidosCancelados}
         onStatusChange={handleStatus}
-    now={clock ?? 0}
-  />
+        now={clock ?? 0}
+      />
 
-  {/* Modal de Detalhes */}
-      {detalhePedido && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { playUiSound('click'); setDetalhePedido(null); }} />
-          {(() => {
-            const statusColors: Record<string, {bg:string;border:string;text:string}> = {
-              EM_AGUARDO:{bg:'bg-gray-500/10',border:'border-gray-500',text:'text-gray-400'},
-              EM_PREPARO:{bg:'bg-orange-500/10',border:'border-orange-500',text:'text-orange-500'},
-              PRONTO:{bg:'bg-yellow-500/10',border:'border-yellow-500',text:'text-yellow-500'},
-              EM_ROTA:{bg:'bg-blue-500/10',border:'border-blue-500',text:'text-blue-500'},
-              COMPLETO:{bg:'bg-green-500/10',border:'border-green-500',text:'text-green-500'}
-            };
-            const meta = statusColors[detalhePedido.status] || statusColors.EM_PREPARO;
-            const steps = [
-              { key:'EM_AGUARDO', label:'Aguardo', icon: FaHourglassHalf },
-              { key:'EM_PREPARO', label:'Preparo', icon: FaUtensils },
-              { key:'PRONTO', label:'Pronto', icon: FaClock },
-              { key:'EM_ROTA', label:'Rota', icon: FaMotorcycle },
-              { key:'COMPLETO', label:'Completo', icon: FaCheckCircle },
-            ];
-            const currentIdx = steps.findIndex(s => s.key === detalhePedido.status);
-            return (
-              <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y: 0, scale: 1 }} transition={{ duration: 0.2 }} className={`relative bg-zinc-900 rounded-2xl border ${meta.border} w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col`}>
-                <div className={`p-5 border-b ${meta.border} relative ${meta.bg}`}>
-                  <div className="pointer-events-none absolute inset-0 opacity-10 bg-[radial-gradient(1000px_200px_at_-10%_-20%,#ffffff,transparent_60%)]" />
-                  <div className="flex items-center justify-between relative z-10">
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Pedido #{detalhePedido.id}</h3>
-                      <p className={`text-xs ${meta.text}`}>Status: {detalhePedido.status}</p>
-                    </div>
-                    <button className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-300" onClick={() => { playUiSound('click'); setDetalhePedido(null); }}>Fechar</button>
-                  </div>
-                  {/* Timeline */}
-                  <div className="mt-4 flex items-center gap-3">
-                    {steps.map((s, idx) => {
-                      const done = idx <= currentIdx;
-                      const Icon = s.icon;
-                      return (
-                        <div key={s.key} className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full border flex items-center justify-center ${done ? meta.border + ' ' + meta.bg : 'border-zinc-700 bg-zinc-800'}`}>
-                            <Icon className={`${done ? meta.text : 'text-zinc-400'} text-sm`} />
-                          </div>
-                          {idx < steps.length - 1 && <div className={`w-10 h-0.5 ${done ? meta.text : 'bg-zinc-700'}`} />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-zinc-800/40 rounded-xl p-4 border border-zinc-800">
-                    <h4 className="text-sm font-semibold text-zinc-200 mb-2">Itens</h4>
-                    {(detalhePedido.itens || []).map((it, i) => (
-                      typeof it === 'string' ? (
-                        <div key={i} className="text-sm text-zinc-300 mb-1">1x {it}</div>
-                      ) : (
-                        <div key={i} className="text-sm text-zinc-300 mb-1">{it.quantidade || 1}x {it.nome} — R$ {(typeof it.preco === 'number' ? it.preco : parseFloat(String(it.preco || 0))).toFixed(2)}</div>
-                      )
-                    ))}
-                  </div>
-                  <div className="bg-zinc-800/40 rounded-xl p-4 border border-zinc-800">
-                    <h4 className="text-sm font-semibold text-zinc-200 mb-2">Cliente & Entrega</h4>
-                    <div className="text-sm text-zinc-400">Cliente: Cliente #{(detalhePedido.id || '').slice(0,3)}</div>
-                    <div className="text-sm text-zinc-400">Endereço: Rua {(detalhePedido.id || '').slice(0,2)} — {detalhePedido.entrega || '—'}</div>
-                    <div className="text-sm text-zinc-400">Pagamento: {detalhePedido.pagamento || '—'}</div>
-                    {detalhePedido.observacoes && <div className="text-sm text-zinc-400">Obs: {detalhePedido.observacoes}</div>}
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })()}
+      {/* Modal Novo Pedido */}
+      {showNovo && (
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <div className="absolute inset-0 bg-black/80" onClick={() => setShowNovo(false)} />
+          <motion.form className="relative bg-zinc-900 rounded-2xl border border-zinc-800 w-full max-w-2xl p-5 space-y-4" initial={{ y: 20, scale: 0.98 }} animate={{ y:0, scale:1 }} onSubmit={async (e)=>{ e.preventDefault(); setSaving(true); try { await fetch('/api/pedidos', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(novoPedido) }); await salvarPedido(novoPedido); const lista = await listarPedidos(); setPedidos(lista); setShowNovo(false); } finally { setSaving(false);} }}>
+            <h3 className="text-lg font-bold text-white">Novo Pedido</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <label className="text-sm text-zinc-300">Cliente Nick
+                <input className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm" value={novoPedido.cliente?.nick || ''} onChange={(e)=> setNovoPedido({ ...novoPedido, cliente: { ...(novoPedido.cliente||{ id: Math.random().toString(36).slice(2,6).toUpperCase(), nick:'', genero:'O' as 'M'|'F'|'O', estrelas:3, gasto:3, simpatia:3 }), nick: e.target.value } })} />
+              </label>
+              <label className="text-sm text-zinc-300">Pagamento
+                <input className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm" value={novoPedido.pagamento || ''} onChange={(e)=> setNovoPedido({ ...novoPedido, pagamento: e.target.value })} />
+              </label>
+              <label className="text-sm text-zinc-300">Entrega
+                <input className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm" value={novoPedido.entrega || ''} onChange={(e)=> setNovoPedido({ ...novoPedido, entrega: e.target.value })} />
+              </label>
+              <label className="text-sm text-zinc-300">Observações
+                <input className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm" value={novoPedido.observacoes || ''} onChange={(e)=> setNovoPedido({ ...novoPedido, observacoes: e.target.value })} />
+              </label>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button type="button" className="px-3 py-1.5 rounded border border-zinc-700 text-zinc-300" onClick={()=> setShowNovo(false)}>Cancelar</button>
+              <button type="submit" className="px-3 py-1.5 rounded bg-orange-600 text-white disabled:opacity-50" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</button>
+            </div>
+          </motion.form>
         </motion.div>
       )}
+
+      {/* Modal de Detalhes */}
+      <PedidoDetalhesModal open={Boolean(detalheId)} id={detalheId} onClose={() => setDetalheId(null)} />
+
+  
     </div>
   );
 }

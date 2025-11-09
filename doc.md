@@ -23,7 +23,7 @@ Status “Entregue”: Pedidos já entregues ao cliente (ou retirados). Quando o
 
 O painel seguirá um layout com cinco colunas fixas — Em preparação, Pronto (aguardando motoboy), Cancelado, Em rota e Entregue — garantindo que cada status principal do fluxo fique visível lado a lado. Cada coluna terá um cabeçalho com o título, um ícone representativo e um contador claro do número de cards presentes naquele status, facilitando o acompanhamento das filas sem precisar abrir nenhum card. Abaixo do título, cada coluna exibe um subtítulo auxiliar que reforça o significado operacional do status (ex.: Em preparação: “Pedido recebido, sendo preparado”; Pronto: “Aguardando motoboy”; Cancelado: “Pedidos cancelados”; Em rota: “Aguardando confirmação do cliente”; Entregue: “Pedidos confirmados e finalizados”). As colunas se reorganizam em uma grade responsiva/mobile-first (1 → 2 → 3 → 5 colunas conforme o espaço), preservando o aspecto bem diagramado em qualquer dispositivo.
 
-Os cards de pedido dentro dessas colunas mostrarão o tempo decorrido desde o registro (calculado a partir do timestamp do pedido) e incluirão um badge visual de “Atraso” sempre que esse tempo superar 15 minutos no mesmo status. Além do badge no card, cada coluna exibirá um contador de atrasos ativos (com animação ou destaque em vermelho) para avisar rapidamente quando um ou mais pedidos exigem urgência. A coluna “Completo” não exibe atrasos, por ser finalizado.
+Os cards de pedido dentro dessas colunas mostrarão o tempo decorrido desde o registro (calculado a partir do timestamp do pedido) e incluirão um badge visual de “Atraso” sempre que esse tempo superar 15 minutos no mesmo status. Além do badge no card, cada coluna exibirá um contador de atrasos ativos (com animação ou destaque em vermelho) para avisar rapidamente quando um ou mais pedidos exigem urgência. A coluna “Completo” e a coluna “Cancelado” não exibem atrasos.
 No painel, cada card de pedido será clicável para ver detalhes ou realizar ações rápidas (como alterar status). As ações comuns (mudar de “Em preparação” para “Pronto”, ou “Pronto” para “Entregue”) podem ser realizadas com um único clique, por exemplo, através de botões “Marcar como Pronto” ou “Marcar como Entregue” diretamente no card ou via drag and drop entre colunas. Isso torna a operação ágil, crucial num ambiente de restaurante. Além disso, é importante que o painel atualize em tempo real ou quase em tempo real. Se vários terminais estiverem em uso (por exemplo, um tablet na cozinha e outro no caixa), mudanças de status feitas em um dispositivo devem refletir nos outros rapidamente. Isso pode ser conseguido via sincronização com backend (quando online) ou via uma store global local. No modo online, uma técnica seria utilizar WebSockets ou SSE para push de atualizações de status; porém, dado o foco offline-first, o sistema pode optar por um esquema de polling leve ou atualização manual combinada com sincronização quando reconectar.
 Modal de Novo Pedido
 Ao iniciar um novo pedido (por exemplo, quando um cliente faz um pedido no balcão ou pelo telefone), o atendente usará um modal de “Novo Pedido” que facilita a montagem do pedido:
@@ -317,7 +317,32 @@ Melhorias de UX do painel
 - Botão de “esconder coluna” no cabeçalho; surge um painel flutuante à esquerda com botões para restaurar colunas ocultas.
 - Sons discretos em hover/click (Web Audio) para feedback das ações.
 - Ícones por item: cada produto pode ter um ícone cadastrado; quando ausente, o sistema infere (hambúrguer, bebida, café, etc.).
+- Chips de filtro por status e “Atrasados”, com contadores e animação sutil no chip de atrasados.
+- Cartões de métricas no topo (1/2/4 por breakpoints) incluindo “Em andamento”.
+- Informações de cliente no card: gênero, nick (animal), ID curto (4 chars) e métricas visuais (estrelas, dinheiro, coração).
+- As métricas de cliente aparecem como “número + ícone” (ex.: 4★ 3$ 5♥) ao lado do nick/ID, conforme especificação.
+- Suporte a arrastar e soltar: mover cards entre colunas por drag-and-drop.
+- DnD: o card inteiro é arrastável (cursor-grab) e as colunas recebem destaque ao arrastar por cima; botões dentro do card não iniciam drag.
+- Grid dinâmico nas colunas (auto-fit/minmax) para evitar “buracos” quando colunas são ocultadas; em mobile continua 1 por linha de forma fluida.
+ - Botão "Popular Banco" fica desabilitado quando a API já possui pedidos (usa contagem do servidor para evitar duplicidade de seed).
+
+Backend (MongoDB) e Seed
+- Variável `MONGODB_URI` (ex.: `mongodb://localhost:27017/pdv1`).
+- Endpoints:
+  - `GET /api/pedidos` – lista pedidos
+  - `POST /api/pedidos` – cria pedido
+  - `GET /api/pedidos/[id]` – obtém um pedido
+  - `PUT /api/pedidos/[id]` – atualiza (muda status grava timestamp)
+- Seed: `POST /api/pedidos/seed` popula o banco a partir do mock com horários relativos ao momento (0 a 120 min para trás), gerando clientes simulados e alguns atrasos.
 - Filtros rápidos por status/atrasos: chips acima das colunas permitem alternar status exibidos e focar apenas em atrasados (exceto “Completo”).
 - “Em andamento” e “Atrasados” agora aparecem como cartões de métrica no topo (grid 1/2/4 em mobile/tablet/desktop).
 - Botão “Esconder coluna” no cabeçalho; reexibição no menu superior (desktop) ou por botão flutuante (mobile). Colunas remanescentes se realinham automaticamente no grid.
+
+Atualizações recentes (cards, colunas e página pública)
+- Cards: atrasos nunca aparecem em COMPLETO/CANCELADO. Em COMPLETO, exibimos chip verde com data/hora do completo; em CANCELADO, chip vermelho com data/hora do cancelamento.
+- Cliente no card: métrica no formato "número + ícone" (ex.: 4★ 3$ 5♥) e ícone de sacola com quantidade de compras. Mostramos também gênero, nick e ID curto.
+- Menu “Colunas”: itens estilizados e coloridos por status; contador no botão quando há colunas ocultas.
+- Grid Kanban com auto-fit/minmax para preencher espaço quando colunas estão ocultas (sem "buracos").
+- Botão “Pedido Link” no card abre a página pública `/pedido/[id]` em nova aba (não expõe o code); página exige code de 4 dígitos. O code aparece apenas no Modal de Detalhes para a equipe, com botão de copiar (assim como o link público).
+- Página pública do pedido (ticket dark/premium): timeline animada, ícone/etiqueta por etapa, textos por status e verificação de code; se cancelado/inexistente, exibe mensagem adequada. Tempos relativos calculados a partir de um relógio no client (sem usar Date.now() no render).
 - Modal de detalhes estilizado por status, com timeline do fluxo (Aguardo → Preparo → Pronto → Rota → Completo), ícones e animação suave.

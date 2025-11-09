@@ -8,15 +8,30 @@ export type PedidoItem = string | {
   icon?: string;
 };
 
+export type Cliente = {
+  id: string;
+  nick: string;
+  genero?: 'M' | 'F' | 'O';
+  estrelas?: number; // 1..5
+  gasto?: number;    // 1..5 (capacidade/valor gasto)
+  simpatia?: number; // 1..5
+  compras?: number;  // total de compras (para badge)
+};
+
 export type Pedido = {
   id: string;
   status: string;
   itens: PedidoItem[];
   tempo?: string;
   criadoEm?: string;
+  timestamps?: Partial<Record<'EM_AGUARDO'|'EM_PREPARO'|'PRONTO'|'EM_ROTA'|'COMPLETO'|'CANCELADO', string>>;
   pagamento?: string;
+  pagamentoStatus?: 'PAGO'|'PENDENTE'|'CANCELADO';
   entrega?: string;
+  troco?: number;
   observacoes?: string;
+  cliente?: Cliente;
+  code?: string; // código de 4 dígitos para página pública
 };
 
 const DB_NAME = 'pdvburgues';
@@ -99,9 +114,21 @@ export async function atualizarStatusPedido(id: string, status: string): Promise
     const pedido = req.result;
     if (pedido) {
       pedido.status = status;
+      if (!pedido.timestamps) pedido.timestamps = {};
+      pedido.timestamps[status] = new Date().toISOString();
       store.put(pedido);
     }
   };
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function atualizarPedido(pedido: Pedido): Promise<void> {
+  const db = await openDB();
+  const tx = db.transaction(STORE_PEDIDOS, 'readwrite');
+  tx.objectStore(STORE_PEDIDOS).put(pedido);
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
