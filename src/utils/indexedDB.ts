@@ -85,6 +85,17 @@ export async function listarPedidos(): Promise<Pedido[]> {
   });
 }
 
+export async function obterPedido(id: string): Promise<Pedido | undefined> {
+  const db = await openDB();
+  const tx = db.transaction(STORE_PEDIDOS, 'readonly');
+  const store = tx.objectStore(STORE_PEDIDOS);
+  return new Promise((resolve, reject) => {
+    const req = store.get(id);
+    req.onsuccess = () => resolve(req.result as Pedido | undefined);
+    req.onerror = () => reject(req.error);
+  });
+}
+
 export async function removerPedido(id: string): Promise<void> {
   const db = await openDB();
   const tx = db.transaction(STORE_PEDIDOS, 'readwrite');

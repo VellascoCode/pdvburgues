@@ -1,4 +1,5 @@
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -6,7 +7,20 @@ import {
   FaShoppingBag, FaDollarSign, FaMapMarkerAlt, FaFileAlt, FaShieldAlt, FaUser, FaRoad, FaHashtag, FaCity
 } from 'react-icons/fa';
 import { playUiSound } from '@/utils/sound';
-import BgFood from '@/components/BgFood';
+import { obterPedido as idbObterPedido, salvarPedido as idbSalvarPedido, Pedido as PedidoDB } from '@/utils/indexedDB';
+
+// Constantes estáticas fora do componente para evitar dependências em hooks
+const NOMES = ['João', 'Maria', 'Carlos', 'Ana', 'Paula', 'Diego', 'Luiza', 'Bruno'] as const;
+const RUAS = ['Av. Central', 'Rua das Flores', 'Rua 7 de Setembro', 'Av. Brasil', 'Rua da Praia'] as const;
+const BAIRROS = ['Centro', 'Jardim América', 'Vila Nova', 'Bela Vista', 'São José'] as const;
+const OBS_POOL = [
+  'Sem cebola no burger, por favor.',
+  'Molho extra à parte.',
+  'Pouco gelo no refrigerante.',
+  'Adicionar sachê de ketchup e maionese.',
+  'Tocar o interfone ao chegar.',
+  'Preferência: pão sem gergelim.'
+] as const;
 
 type PedidoItem = string | { nome: string; quantidade?: number; preco?: number|string; icon?: string };
 type Cliente = { id?: string; nick?: string };
@@ -22,6 +36,7 @@ type Pedido = {
   entrega?: string;
   observacoes?: string;
   cliente?: Cliente;
+  troco?: number | string | null;
 };
 
 export default function PublicPedido() {
@@ -34,7 +49,7 @@ export default function PublicPedido() {
 
   // PIN state (igual ao index: 4 inputs)
   const [pin, setPin] = useState(['', '', '', '']);
-  const [blocked, setBlocked] = useState(false);
+  const [blocked] = useState(false);
   const [errorPin, setErrorPin] = useState('');
   const [successPin, setSuccessPin] = useState(false);
   const [shake, setShake] = useState(false);
@@ -66,15 +81,69 @@ export default function PublicPedido() {
 
   useEffect(() => {
     if (!id || typeof id !== 'string') return;
-    fetch(`/api/pedidos/${id}`).then(async (r) => {
-      if (!r.ok) {
-        setErro('Pedido cancelado ou inexistente');
+    // loading já inicia como true; evitamos setState síncrono no effect
+    // cache local IndexedDB: carrega imediatamente se existir
+    (async () => {
+      try {
+        const p = await idbObterPedido(id as string);
+        if (p) setPedido(p as unknown as Pedido);
+      } catch {}
+    })();
+    let alive = true;
+    let fetched: Pedido | null = null;
+    let errorFlag = '';
+
+    const sleep = new Promise<void>((res) => setTimeout(res, 3000));
+    const get = fetch(`/api/pedidos/${id}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error('notfound');
+        return (await r.json()) as Pedido;
+      })
+      .then((p) => { fetched = p; })
+      .catch(() => { errorFlag = 'pedido cancelado ou inexistente'; });
+
+    Promise.all([sleep, get]).then(async () => {
+      if (!alive) return;
+      if (errorFlag) {
+        setErro('pedido cancelado ou inexistente');
         setPedido(null);
-      } else {
-        const p = await r.json();
-        setPedido(p);
+        setLoading(false);
+        return;
       }
-    }).catch(() => setErro('Pedido cancelado ou inexistente')).finally(() => setLoading(false));
+      if (fetched) {
+        // Cancelado => indisponível
+        if (String(fetched.status).toUpperCase() === 'CANCELADO') {
+          setErro('pedido cancelado ou inexistente');
+          setPedido(null);
+          setLoading(false);
+          return;
+        }
+        // Completo há mais de 6h => indisponível
+        const tsComp = fetched.timestamps?.COMPLETO ? Date.parse(fetched.timestamps.COMPLETO) : undefined;
+        if (String(fetched.status).toUpperCase() === 'COMPLETO' && tsComp && (Date.now() - tsComp) > 6 * 60 * 60 * 1000) {
+          setErro('pedido cancelado ou inexistente');
+          setPedido(null);
+          setLoading(false);
+          return;
+        }
+        // salva em IndexedDB
+        try { await idbSalvarPedido(fetched as unknown as PedidoDB); } catch {}
+        setPedido(fetched);
+      }
+      setLoading(false);
+    });
+
+    const handleOnline = () => {
+      // ao reconectar, tenta atualizar silenciosamente
+      fetch(`/api/pedidos/${id}`).then(async r => {
+        if (!r.ok) return;
+        const p = await r.json();
+        try { await idbSalvarPedido(p as unknown as PedidoDB); } catch {}
+        setPedido(p);
+      }).catch(()=>{});
+    };
+    window.addEventListener('online', handleOnline);
+    return () => { alive = false; window.removeEventListener('online', handleOnline); };
   }, [id]);
 
   // Relógio estável no client para tempos relativos
@@ -172,31 +241,19 @@ export default function PublicPedido() {
 
   // Dados auxiliares (endereços e observações simuladas)
   const seed = useMemo(() => (typeof id === 'string' ? id : 'X').split('').reduce((a,c)=> a + c.charCodeAt(0), 0), [id]);
-  const nomes = ['João', 'Maria', 'Carlos', 'Ana', 'Paula', 'Diego', 'Luiza', 'Bruno'];
-  const ruas = ['Av. Central', 'Rua das Flores', 'Rua 7 de Setembro', 'Av. Brasil', 'Rua da Praia'];
-  const bairros = ['Centro', 'Jardim América', 'Vila Nova', 'Bela Vista', 'São José'];
   const addr = useMemo(() => ({
-    nome: nomes[seed % nomes.length],
-    rua: ruas[seed % ruas.length],
+    nome: NOMES[seed % NOMES.length],
+    rua: RUAS[seed % RUAS.length],
     numero: 100 + (seed % 900),
-    bairro: bairros[(seed >> 1) % bairros.length]
+    bairro: BAIRROS[(seed >> 1) % BAIRROS.length]
   }), [seed]);
-  const obsPool = [
-    'Sem cebola no burger, por favor.',
-    'Molho extra à parte.',
-    'Pouco gelo no refrigerante.',
-    'Adicionar sachê de ketchup e maionese.',
-    'Tocar o interfone ao chegar.',
-    'Preferência: pão sem gergelim.'
-  ];
-  const obsAuto = useMemo(() => pedido?.observacoes || obsPool[seed % obsPool.length], [pedido?.observacoes, seed]);
+  const obsAuto = useMemo(() => (pedido?.observacoes ? pedido.observacoes : OBS_POOL[seed % OBS_POOL.length]), [pedido, seed]);
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-zinc-950/10 via-zinc-900/20 to-black/20 p-6 flex items-center justify-center relative">
-      <BgFood />
+    <div className="min-h-screen app-gradient-bg p-6 flex items-center justify-center relative">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-2xl relative">
         {/* Card principal */}
-        <div className="bg-zinc-900/80 backdrop-blur-xl rounded-2xl border border-zinc-800 shadow-2xl overflow-hidden">
+        <div className="backdrop-blur-xl rounded-2xl border shadow-2xl overflow-hidden theme-surface theme-border">
           <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2 text-zinc-400 text-sm">
               <FaShieldAlt className="text-zinc-500" />
@@ -207,12 +264,32 @@ export default function PublicPedido() {
 
           <div className="p-6">
             {loading ? (
-              <div className="text-zinc-400 text-center">Carregando...</div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-zinc-400 text-center py-8"
+              >
+                Carregando seu pedido...
+              </motion.div>
             ) : erro ? (
-              <div className="text-center text-red-400 flex flex-col items-center gap-2">
-                <FaTimesCircle className="text-3xl" />
-                <p>{erro}</p>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="text-center text-red-400 flex flex-col items-center gap-3"
+              >
+                <motion.div animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.2, repeat: 2, ease: 'easeInOut' }}>
+                  <FaTimesCircle className="text-3xl" />
+                </motion.div>
+                <p className="font-semibold">{erro}</p>
+                <p className="text-zinc-400 text-sm max-w-md">
+                  Obrigado por acompanhar. Este link não está disponível no momento.
+                </p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap justify-center">
+                  <Link href="/" className="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800/60 transition">Voltar ao início</Link>
+                  <button onClick={() => typeof window !== 'undefined' && window.location.reload()} className="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800/60 transition">Tentar novamente</button>
+                  <a href="mailto:suporte@pdvburguer.app" className="px-3 py-1.5 rounded-lg border border-orange-600 text-orange-300 hover:bg-orange-600/10 transition">Contato/Suporte</a>
+                </div>
+              </motion.div>
             ) : (
               <>
                 {/* GATE PIN */}
@@ -269,7 +346,7 @@ export default function PublicPedido() {
                       className={`w-full py-3 rounded-xl font-bold text-base transition-all relative overflow-hidden
                         ${blocked || successPin 
                           ? 'bg-zinc-700 cursor-not-allowed opacity-50' 
-                          : 'bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl hover:shadow-orange-500/30 active:scale-95'}
+                          : 'brand-btn hover:brightness-110 shadow-lg hover:shadow-xl active:scale-95'}
                       `}
                       whileHover={!blocked && !successPin ? { scale: 1.01 } : {}}
                       whileTap={!blocked && !successPin ? { scale: 0.99 } : {}}

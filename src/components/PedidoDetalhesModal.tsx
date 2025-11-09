@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaCheckCircle, FaClock, FaHourglassHalf, FaMotorcycle, FaTimes, FaTimesCircle, FaUtensils } from 'react-icons/fa';
+import { FaCheckCircle, FaClock, FaHourglassHalf, FaMotorcycle, FaTimes, FaUtensils } from 'react-icons/fa';
 
 type PedidoItem = string | { nome: string; quantidade?: number; preco?: number|string };
 type Pedido = {
@@ -13,6 +13,14 @@ type Pedido = {
   code?: string;
   troco?: number;
 };
+
+const STEPS = [
+  { key:'EM_AGUARDO', label:'Aguardo', icon: FaHourglassHalf },
+  { key:'EM_PREPARO', label:'Preparo', icon: FaUtensils },
+  { key:'PRONTO', label:'Pronto', icon: FaClock },
+  { key:'EM_ROTA', label:'Rota', icon: FaMotorcycle },
+  { key:'COMPLETO', label:'Completo', icon: FaCheckCircle },
+] as const;
 
 export default function PedidoDetalhesModal({ open, id, onClose }: { open: boolean; id: string | null; onClose: () => void; }) {
   const [pedido, setPedido] = useState<Pedido | null>(null);
@@ -37,15 +45,7 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
     return () => { active = false; };
   }, [open, id]);
 
-  const steps = [
-    { key:'EM_AGUARDO', label:'Aguardo', icon: FaHourglassHalf },
-    { key:'EM_PREPARO', label:'Preparo', icon: FaUtensils },
-    { key:'PRONTO', label:'Pronto', icon: FaClock },
-    { key:'EM_ROTA', label:'Rota', icon: FaMotorcycle },
-    { key:'COMPLETO', label:'Completo', icon: FaCheckCircle },
-  ] as const;
-
-  const currentIdx = useMemo(() => steps.findIndex(s => s.key === pedido?.status), [pedido]);
+  const currentIdx = useMemo(() => STEPS.findIndex(s => s.key === pedido?.status), [pedido]);
   const rel = (ts?: string) => {
     if (!ts) return '';
     const ms = Date.now() - Date.parse(ts);
@@ -89,7 +89,7 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
               {/* Timeline */}
               {pedido && (
                 <div className="mt-4 flex items-center gap-3 flex-wrap">
-                  {steps.map((s, idx)=>{
+                  {STEPS.map((s, idx)=>{
                     const Icon = s.icon;
                     type SKey = 'EM_AGUARDO'|'EM_PREPARO'|'PRONTO'|'EM_ROTA'|'COMPLETO';
                     const ts = pedido.timestamps ? pedido.timestamps[s.key as SKey] : undefined;
@@ -100,7 +100,7 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
                           <Icon className={`${done ? 'text-orange-400' : 'text-zinc-400'} text-sm`} />
                         </div>
                         <span className="text-[11px] text-zinc-400">{rel(ts)}</span>
-                        {idx < steps.length - 1 && <div className={`w-8 h-0.5 ${done ? 'bg-orange-500' : 'bg-zinc-700'}`} />}
+                        {idx < STEPS.length - 1 && <div className={`w-8 h-0.5 ${done ? 'bg-orange-500' : 'bg-zinc-700'}`} />}
                       </div>
                     );
                   })}

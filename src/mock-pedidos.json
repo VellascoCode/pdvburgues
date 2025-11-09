@@ -1,0 +1,26 @@
+{
+  "pedidos": [
+    {
+      "id": "A001",
+      "status": "EM_AGUARDO",
+      "itens": [
+        { "nome": "X-Burger", "quantidade": 1, "preco": 18.9 },
+        { "nome": "Coca-Cola 350ml", "quantidade": 1, "preco": 6 }
+      ]
+    },
+    {
+      "id": "B002",
+      "status": "EM_PREPARO",
+      "itens": [
+        { "nome": "X-Salada", "quantidade": 1, "preco": 17.5 }
+      ]
+    },
+    {
+      "id": "C003",
+      "status": "PRONTO",
+      "itens": [
+        { "nome": "X-Bacon", "quantidade": 2, "preco": 21.0 }
+      ]
+    }
+  ]
+}

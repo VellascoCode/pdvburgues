@@ -91,8 +91,11 @@ Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do
 - [x] Modal de detalhes separado como componente, com montagem/desmontagem e animações de entrada/saída, carregando pelo ID do pedido.
 - [x] Removido "Status de Pagamento" do modal de detalhes; mantido campo de Troco com salvar.
 - [ ] Ajustar edição de pagamento fora do modal (quando aplicável) – a validar com cliente.
- - [x] Background global com ícones de comida (grade, opacidade média, animação suave), aplicado em `_app`.
+ - [x] Background de ícones removido; aguardando imagem de fundo do cliente para aplicar como cover otimizado em `_app`.
  - [x] Sons sutis (hover nas seções e submit do PIN) na página pública do pedido.
+ - [x] Componente `BgFood` removido do projeto a pedido do cliente.
+ - [x] Página `/pedido/[id]`: adicionado atraso de 3s antes do fetch para evitar consultas em excesso; mensagem animada “pedido cancelado ou inexistente” quando não encontrado/cancelado.
+  - [x] Microinteração: ícone da mensagem de erro com pulso sutil ao exibir.
 
 ## Entregas desta tarefa
 - [x] Página `/pedido/[id]` refeita com PIN de 4 dígitos (universal 1111), UI premium igual à tela de login.
@@ -111,6 +114,7 @@ Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do
 - [x] PIN do link exibido em um badge no card do dashboard (conforme instrução do cliente).
 - [x] Menu “Colunas” estilizado por status; grid Kanban com auto-fit/minmax (sem "buracos" ao ocultar colunas).
 - [x] Lint zerado: removido Date.now no render da página pública; ajustado service worker (parâmetro não usado).
+ - [x] Página pública `/pedido/[id]`: loading mínimo de 3s antes do PIN; se inexistente/cancelado ou COMPLETO há >6h, exibe página de indisponibilidade (mensagem animada, obrigado, ações Voltar/Tentar novamente).
 
 ---
 **Checklist de andamento:**
@@ -130,3 +134,15 @@ Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do
 	 - [x] Feedback visual e sonoro
 	 - [x] Testado reload, offline, responsividade
 - [x] Grid das colunas usa auto-fit/minmax para preencher a largura quando colunas estão ocultas (sem “buracos”).
+- [x] Tema ajustado: Light menos brilhante (texto escuro consistente). Gradiente com alpha para conforto visual.
+- [x] Tema persistido entre páginas (localStorage + aplicação no SSR via `_document`).
+- [x] BG de ícones removido; aguardando imagem de fundo do cliente para aplicar como cover otimizado.
+- [x] Dashboard resiliente offline: quando servidor cai ou sem conexão, exibe aviso e usa IndexedDB; ao reconectar, sincroniza pedidos e remove aviso.
+- [x] Removido `ThemeSwitcher.tsx` (obsoleto); controle de tema fica no dropdown do Header. Erros de TS eliminados.
+- [x] Card “Cancelados” do dashboard exibe contagem baseada nos dados carregados da API/IndexedDB (filtro por status `CANCELADO`).
+- [x] Tema global (Dark, Light, Code) com persistência; gradiente com alpha aplicado.
+- [x] BG de ícones removido a pedido do cliente. Futuramente usaremos imagem otimizada como background quando fornecida.
+ - [x] Página pública `/pedido/[id]`: loading mínimo de 3s antes do PIN; se inexistente/cancelado ou COMPLETO há >6h, exibe página de indisponibilidade (mensagem animada, obrigado, ações Voltar/Tentar novamente/Contato-Suporte). Cache local agora em IndexedDB + sincronização ao reconectar.
+ - [x] Dashboard: gutters/colunas mais compactos em telas estreitas (minmax 260px, gaps menores).
+ - [x] Lint/build limpos: removidos `setState` síncronos em effects (ThemeContext com lazy init; `/pedido/[id]` inicia `loading` true e evita set imediato), trocado `<a href="/">` por `Link`, arrays/constantes movidas para fora do componente, e removidos `as any` (tipagem via `Pedido` do IndexedDB).
+ - [x] PedidoDetalhesModal: removido ícone não usado, `steps` fixado fora do componente e dependências corrigidas para os hooks.

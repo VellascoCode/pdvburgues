@@ -55,43 +55,13 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
 
   // Cores por status
   const statusColors = {
-    EM_AGUARDO: {
-      bg: "bg-gray-500/10",
-      border: "border-gray-500",
-      text: "text-gray-400",
-      badge: "bg-gray-500"
-    },
-    EM_PREPARO: {
-      bg: "bg-orange-500/10",
-      border: "border-orange-500",
-      text: "text-orange-500",
-      badge: "bg-orange-500"
-    },
-    PRONTO: {
-      bg: "bg-yellow-500/10",
-      border: "border-yellow-500",
-      text: "text-yellow-500",
-      badge: "bg-yellow-500"
-    },
-    EM_ROTA: {
-      bg: "bg-blue-500/10",
-      border: "border-blue-500",
-      text: "text-blue-500",
-      badge: "bg-blue-500"
-    },
-    COMPLETO: {
-      bg: "bg-green-500/10",
-      border: "border-green-500",
-      text: "text-green-500",
-      badge: "bg-green-500"
-    },
-    CANCELADO: {
-      bg: "bg-red-500/10",
-      border: "border-red-500",
-      text: "text-red-500",
-      badge: "bg-red-500"
-    }
-  };
+    EM_AGUARDO: { bg: 'bg-gray-500/10', border: 'border-gray-500', text: 'text-gray-400', badge: 'bg-gray-500' },
+    EM_PREPARO: { bg: 'bg-orange-500/10', border: 'border-orange-500', text: 'text-orange-500', badge: 'bg-orange-500' },
+    PRONTO: { bg: 'bg-yellow-500/10', border: 'border-yellow-500', text: 'text-yellow-500', badge: 'bg-yellow-500' },
+    EM_ROTA: { bg: 'bg-blue-500/10', border: 'border-blue-500', text: 'text-blue-500', badge: 'bg-blue-500' },
+    COMPLETO: { bg: 'bg-green-500/10', border: 'border-green-500', text: 'text-green-500', badge: 'bg-green-500' },
+    CANCELADO: { bg: 'bg-red-500/10', border: 'border-red-500', text: 'text-red-500', badge: 'bg-red-500' }
+  } as const;
 
   const colors = statusColors[status as keyof typeof statusColors] || statusColors.EM_PREPARO;
 
@@ -100,7 +70,7 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className={`bg-white/5 backdrop-blur rounded-xl border ${colors.border} overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 mb-3 cursor-grab active:cursor-grabbing`}
+      className={`backdrop-blur rounded-xl border ${colors.border} overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 mb-3 cursor-grab active:cursor-grabbing theme-surface`}
     >
       <div
         draggable
@@ -252,7 +222,7 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
       </div>
 
       {/* Botões de ação */}
-      <div className="px-4 pb-4 flex gap-2 flex-wrap">
+      <div className="px-4 pb-4 grid grid-cols-2 gap-2">
         {onOpenDetails && (
           <button
             className="py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-transparent border border-zinc-600/60 text-zinc-300 hover:bg-zinc-800/60 flex items-center justify-center gap-2"
@@ -341,7 +311,7 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
         )}
         {status === "EM_ROTA" && (
           <button
-            className="w-full py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-green-500/10 text-green-500 border border-green-500 hover:bg-green-500/20 flex items-center justify-center gap-2"
+            className="col-span-2 py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-green-500/10 text-green-500 border border-green-500 hover:bg-green-500/20 flex items-center justify-center gap-2"
             onMouseEnter={() => playUiSound('hover')}
             onClick={() => { playUiSound('click'); onStatusChange(pedido.id, "COMPLETO"); }}
             draggable={false}
@@ -352,7 +322,7 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
         )}
         {muitoAtrasado && (
           <button
-            className="w-full py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-red-600/20 text-red-300 border border-red-500 animate-pulse flex items-center justify-center gap-2"
+            className="col-span-2 py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-red-600/20 text-red-300 border border-red-500 animate-pulse flex items-center justify-center gap-2"
             onMouseEnter={() => playUiSound('hover')}
             onClick={() => { playUiSound('click'); onStatusChange(pedido.id, 'CANCELADO'); }}
           >

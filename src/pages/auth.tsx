@@ -16,8 +16,8 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900">
-      <form onSubmit={handleSubmit} className="bg-gray-800 p-8 rounded shadow-md w-80">
+    <div className="relative flex flex-col items-center justify-center min-h-screen app-gradient-bg overflow-hidden">
+      <form onSubmit={handleSubmit} className="p-8 rounded shadow-md w-80 theme-surface theme-border border">
         <h1 className="text-2xl font-bold text-center text-white mb-6">Login PDV Burguer</h1>
         <input
           type="password"

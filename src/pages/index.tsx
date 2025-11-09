@@ -174,11 +174,11 @@ export default function Home() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-zinc-950 via-zinc-900 to-black relative overflow-hidden">
+    <div className="flex min-h-screen items-center justify-center app-gradient-bg relative overflow-hidden">
       {/* Animação de fundo */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
-          className="absolute -top-1/2 -left-1/2 w-full h-full bg-linear-to-br from-orange-500/5 to-transparent rounded-full blur-3xl"
+          className="absolute -top-1/2 -left-1/2 w-full h-full brand-gradient/20 rounded-full blur-3xl"
           animate={{
             scale: [1, 1.2, 1],
             rotate: [0, 90, 0],
@@ -212,7 +212,7 @@ export default function Home() {
         <motion.form
           onSubmit={handleSubmit}
           ref={formRef}
-          className="flex flex-col items-center justify-center bg-zinc-900/80 backdrop-blur-xl rounded-3xl shadow-2xl p-12 w-full max-w-md border border-zinc-800/50"
+          className="flex flex-col items-center justify-center backdrop-blur-xl rounded-3xl shadow-2xl p-12 w-full max-w-md border border-zinc-800/50 theme-surface theme-border"
           animate={shake ? {
             x: [-10, 10, -10, 10, 0],
             transition: { duration: 0.4 }
@@ -231,7 +231,7 @@ export default function Home() {
             }}
           >
             <div className="relative">
-              <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-xl">
+              <div className="w-20 h-20 rounded-2xl brand-btn flex items-center justify-center shadow-xl">
                 <AnimatePresence mode="wait">
                   {success ? (
                     <motion.div
@@ -255,7 +255,7 @@ export default function Home() {
                 </AnimatePresence>
               </div>
               <motion.div
-                className="absolute -inset-2 bg-linear-to-br from-orange-500 to-orange-600 rounded-2xl blur-xl opacity-50"
+                className="absolute -inset-2 brand-btn rounded-2xl blur-xl opacity-50"
                 animate={{
                   opacity: [0.3, 0.6, 0.3],
                 }}
@@ -270,7 +270,7 @@ export default function Home() {
 
           {/* Título */}
           <motion.h1 
-            className="text-4xl font-bold bg-linear-to-r from-orange-400 via-orange-500 to-yellow-500 bg-clip-text text-transparent mb-3 tracking-tight"
+            className="text-4xl font-bold brand-gradient bg-clip-text text-transparent mb-3 tracking-tight"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
@@ -360,7 +360,7 @@ export default function Home() {
             className={`w-full py-4 rounded-xl font-bold text-lg transition-all relative overflow-hidden
               ${blocked || success 
                 ? 'bg-zinc-700 cursor-not-allowed opacity-50' 
-                : 'bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl hover:shadow-orange-500/30 active:scale-95'
+                : 'brand-btn hover:brightness-110 shadow-lg hover:shadow-xl active:scale-95'
               }
             `}
             whileHover={!blocked && !success ? { scale: 1.02 } : {}}
