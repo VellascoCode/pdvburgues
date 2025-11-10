@@ -7,7 +7,6 @@ import {
   FaShoppingBag, FaDollarSign, FaMapMarkerAlt, FaFileAlt, FaShieldAlt, FaUser, FaRoad, FaHashtag, FaCity
 } from 'react-icons/fa';
 import { playUiSound } from '@/utils/sound';
-import { obterPedido as idbObterPedido, salvarPedido as idbSalvarPedido, Pedido as PedidoDB } from '@/utils/indexedDB';
 
 // Constantes estáticas fora do componente para evitar dependências em hooks
 const NOMES = ['João', 'Maria', 'Carlos', 'Ana', 'Paula', 'Diego', 'Luiza', 'Bruno'] as const;
@@ -81,14 +80,6 @@ export default function PublicPedido() {
 
   useEffect(() => {
     if (!id || typeof id !== 'string') return;
-    // loading já inicia como true; evitamos setState síncrono no effect
-    // cache local IndexedDB: carrega imediatamente se existir
-    (async () => {
-      try {
-        const p = await idbObterPedido(id as string);
-        if (p) setPedido(p as unknown as Pedido);
-      } catch {}
-    })();
     let alive = true;
     let fetched: Pedido | null = null;
     let errorFlag = '';
@@ -126,24 +117,12 @@ export default function PublicPedido() {
           setLoading(false);
           return;
         }
-        // salva em IndexedDB
-        try { await idbSalvarPedido(fetched as unknown as PedidoDB); } catch {}
         setPedido(fetched);
       }
       setLoading(false);
     });
 
-    const handleOnline = () => {
-      // ao reconectar, tenta atualizar silenciosamente
-      fetch(`/api/pedidos/${id}`).then(async r => {
-        if (!r.ok) return;
-        const p = await r.json();
-        try { await idbSalvarPedido(p as unknown as PedidoDB); } catch {}
-        setPedido(p);
-      }).catch(()=>{});
-    };
-    window.addEventListener('online', handleOnline);
-    return () => { alive = false; window.removeEventListener('online', handleOnline); };
+    return () => { alive = false; };
   }, [id]);
 
   // Relógio estável no client para tempos relativos
@@ -313,6 +292,7 @@ export default function PublicPedido() {
                             maxLength={1}
                             inputMode="numeric"
                             disabled={blocked || successPin}
+                            aria-label={`Dígito ${idx+1} do PIN`}
                             value={d}
                             onChange={(e) => handleChange(idx, e.target.value)}
                             onKeyDown={(e) => handleKeyDown(idx, e)}
@@ -352,15 +332,8 @@ export default function PublicPedido() {
                       whileTap={!blocked && !successPin ? { scale: 0.99 } : {}}
                     >
                       <span className="relative z-10 text-white">Ver pedido</span>
-                      {!blocked && !successPin && (
-                        <motion.div
-                          className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent"
-                          initial={{ x: '-100%' }}
-                          animate={{ x: '200%' }}
-                          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                        />
-                      )}
-                    </motion.button>
+                    {/* shimmer removido */}
+                  </motion.button>
                   </motion.form>
                 )}
 
@@ -446,13 +419,11 @@ export default function PublicPedido() {
                           return (
                             <div key={s.key} className="flex-1 flex items-center">
                               <div className="flex flex-col items-center w-20">
-                                <motion.div
+                                <div
                                   className={`w-9 h-9 rounded-full border flex items-center justify-center ${done ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-700 bg-zinc-900'}`}
-                                  animate={done ? { scale: [1, 1.05, 1] } : {}}
-                                  transition={done ? { duration: 1.2, repeat: Infinity, ease: 'easeInOut' } : {}}
                                 >
                                   <Icon className={`${done ? 'text-orange-400' : 'text-zinc-500'} text-sm`} />
-                                </motion.div>
+                                </div>
                                 <div className="text-[11px] text-zinc-400 mt-2 text-center">
                                   <div className="font-medium text-zinc-300">{s.label}</div>
                                   <div className="text-zinc-500">{rel(ts)}</div>

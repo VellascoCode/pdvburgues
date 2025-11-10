@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaCheckCircle, FaClock, FaHourglassHalf, FaMotorcycle, FaTimes, FaUtensils } from 'react-icons/fa';
 
@@ -26,6 +26,8 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -45,6 +47,32 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
     return () => { active = false; };
   }, [open, id]);
 
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'Tab') {
+        const root = dialogRef.current;
+        if (!root) return;
+        const focusables = root.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        } else {
+          if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); prev?.focus(); };
+  }, [open, onClose]);
+
   const currentIdx = useMemo(() => STEPS.findIndex(s => s.key === pedido?.status), [pedido]);
   const rel = (ts?: string) => {
     if (!ts) return '';
@@ -59,16 +87,16 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-labelledby="pedido-detalhes-title">
           <div className="absolute inset-0 bg-black/80" onClick={onClose} />
-          <motion.div initial={{ y: 20, scale: 0.98 }} animate={{ y:0, scale:1 }} exit={{ y: 20, opacity: 0 }} className={`relative bg-zinc-900 rounded-2xl border border-zinc-800 w-full max-w-3xl max-h-[85vh] overflow-hidden` }>
+          <motion.div ref={dialogRef} initial={{ y: 20, scale: 0.98 }} animate={{ y:0, scale:1 }} exit={{ y: 20, opacity: 0 }} className={`relative bg-zinc-900 rounded-2xl border border-zinc-800 w-full max-w-3xl max-h-[85vh] overflow-hidden` }>
             <div className="p-5 border-b border-zinc-800 bg-zinc-800/20">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-bold text-white">{pedido ? `Pedido #${pedido.id}` : 'Pedido'}</h3>
+                  <h3 id="pedido-detalhes-title" className="text-lg font-bold text-white">{pedido ? `Pedido #${pedido.id}` : 'Pedido'}</h3>
                   {pedido && <p className="text-xs text-zinc-400">Status: {pedido.status}</p>}
                 </div>
-                <button className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-300" onClick={onClose}><FaTimes /></button>
+                <button ref={closeRef} className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-300" onClick={onClose} aria-label="Fechar"><FaTimes /></button>
               </div>
               {/* Link público e Code */}
               {pedido && (

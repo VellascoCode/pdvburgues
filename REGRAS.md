@@ -1,10 +1,10 @@
-Regras de Trabalho – PDV Burguer
+Regras de Trabalho – Cortex PDV
 
 Objetivo: garantir consistência, qualidade e velocidade sem quebrar o build.
 
 1) Leitura e alinhamento
 - Sempre ler/relir: `doc.md` e `passoapasso.md` antes de mexer.
-- Atualizar `passoapasso.md` ao concluir qualquer entrega perceptível (UI, lógica, API, dados, acessibilidade).
+- Atualizar `passoapasso.md` ao concluir qualquer entrega FEITA, INICIOU RESPOSTA? LEIA, FINALIZOU? LEIA E ATUALIZE. 
 
 2) Build, lint e tipos
 - Não introduzir erros de compilação (TS/Next) nem quebrar o SSR/CSR.

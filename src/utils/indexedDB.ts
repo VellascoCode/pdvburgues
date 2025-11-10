@@ -32,6 +32,8 @@ export type Pedido = {
   observacoes?: string;
   cliente?: Cliente;
   code?: string; // código de 4 dígitos para página pública
+  motoboy?: string; // opcional (simulado)
+  fidelidade?: { enabled: boolean; evento?: string };
 };
 
 const DB_NAME = 'pdvburgues';

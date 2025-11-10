@@ -109,6 +109,18 @@ html[data-theme='light'] .text-zinc-200 { color: #1f2937 !important; }
 /* Ensure white text inside theme surfaces turns dark in light theme */
 html[data-theme='light'] .theme-surface .text-white { color: #0b1220 !important; }
 
+/* A11y focus styles */
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--brand-to);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
 /* removed */
 /* Theme color overrides for status colors */
 /* Dark (defaults roughly match Tailwind) */

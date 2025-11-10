@@ -131,7 +131,7 @@ function PinModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/90" onClick={onClose} />
       <motion.div
         className="relative w-full max-w-sm rounded-2xl border theme-border theme-surface bg-zinc-900 p-6 shadow-2xl"
         initial={{ y: 20, scale: 0.95 }}
@@ -232,9 +232,9 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/90" onClick={onClose} />
         <motion.div
-          className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border theme-border theme-surface bg-zinc-900 shadow-2xl"
+          className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border theme-border  bg-zinc-900 shadow-2xl"
           initial={{ y: 20, scale: 0.95 }}
           animate={{ y: 0, scale: 1 }}
           exit={{ y: 20, scale: 0.95 }}
@@ -359,14 +359,14 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
             </div>
 
             {/* Segunda linha: seções em largura total */}
-            <div className="mt-8 space-y-8">
+            <div className="mt-8 grid grid-cols-1 lg:grid-cols-5 gap-8">
               {/* Promoção */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
+              <div className="space-y-3 md:pr-4 col-span-5 md:col-span-2">
+                <div className="flex items-center gap-2 mb-2">
                   <FaDollarSign className="text-zinc-400" />
                   <h3 className="text-sm font-semibold text-zinc-300">Promoção</h3>
                 </div>
-                <div className="flex items-end gap-3">
+                <div className="flex flex-col md:flex-row md:items-end gap-3">
                   <label className="flex flex-col gap-1.5 flex-1">
                     <span className="text-xs text-zinc-400 flex items-center gap-1.5">
                       <FaDollarSign className="text-zinc-400" />
@@ -380,24 +380,30 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                       onChange={(e) => setPromo(formatCurrency(e.target.value))}
                     />
                   </label>
-                  <Toggle
-                    checked={promoAtiva}
-                    onChange={setPromoAtiva}
-                    label="Ativar"
-                  />
+                  <div className="flex flex-row items-center gap-2 md:gap-3 mt-2 md:mt-0">
+                    <Toggle
+                      checked={promoAtiva}
+                      onChange={setPromoAtiva}
+                      label="Ativar"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Configurações */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
+              <div className="space-y-3 px-0 md:px-2 mt-4 col-span-5 md:col-span-3">
+                <div className="flex items-center gap-2 mb-2">
                   <FaCog className="text-zinc-400" />
                   <h3 className="text-sm font-semibold text-zinc-300">Configurações</h3>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <Toggle checked={ativo} onChange={setAtivo} label="Ativo" />
-                  <Toggle checked={combo} onChange={setCombo} label="Combo" />
-                  <label className="flex flex-col gap-1.5 sm:col-span-2">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 items-end">
+                  <div>
+                    <Toggle checked={ativo} onChange={setAtivo} label="Ativo" />
+                  </div>
+                  <div>
+                    <Toggle checked={combo} onChange={setCombo} label="Combo" />
+                  </div>
+                  <label className="flex flex-col gap-1.5 md:col-span-3">
                     <span className="text-xs text-zinc-400">Estoque</span>
                     <div className="flex items-center gap-2">
                       <input
@@ -436,12 +442,12 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
               </div>
 
               {/* Ícone */}
-              <div className="space-y-3">
+              <div className="space-y-3 col-span-5">
                 <div className="flex items-center gap-2">
                   <FaPalette className="text-zinc-400" />
                   <h3 className="text-sm font-semibold text-zinc-300">Ícone</h3>
                 </div>
-                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-2 p-3 rounded-lg border theme-border bg-zinc-900 max-h-48 overflow-y-auto">
+                <div className="grid  grid-cols-12 gap-2 p-3 rounded-lg border theme-border bg-zinc-900  overflow-y-auto">
                   {FOOD_KEYS.map((key) => {
                     const Icon = ICONS[key];
                     return (
@@ -464,7 +470,7 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
               </div>
 
               {/* Cores */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 col-span-5">
                 <div className="space-y-2">
                   <h3 className="text-xs font-semibold text-zinc-400">Cor do Ícone</h3>
                   <div className="grid grid-cols-7 gap-1.5">
@@ -505,24 +511,25 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                   </div>
                 </div>
               </div>
+              <div className=" border-t theme-border px-6 py-4 grid grid-cols-1 md:grid-cols-2 items-center justify-end gap-3 col-span-5">
+                <button
+                  className="px-5 py-2 rounded-lg border theme-border text-zinc-300 hover:bg-zinc-800 transition-colors"
+                  onClick={onClose}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="px-5 py-2 rounded-lg brand-btn text-white disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+                  onClick={() => setPinModalOpen(true)}
+                  disabled={isSaveDisabled}
+                >
+                  Salvar Produto
+                </button>
+              </div>
             </div>
 
                 {/* Footer */}
-                <div className="sticky bottom-0 theme-surface bg-zinc-900 border-t theme-border px-6 py-4 flex items-center justify-end gap-3">
-                  <button
-                    className="px-5 py-2 rounded-lg border theme-border text-zinc-300 hover:bg-zinc-800 transition-colors"
-                    onClick={onClose}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    className="px-5 py-2 rounded-lg brand-btn text-white disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-                    onClick={() => setPinModalOpen(true)}
-                    disabled={isSaveDisabled}
-                  >
-                    Salvar Produto
-                  </button>
-                </div>
+                
               </div>
         </motion.div>
       </motion.div>

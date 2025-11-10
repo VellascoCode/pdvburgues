@@ -18,25 +18,28 @@ function OnlineStatusBanner() {
     };
   }, []);
   if (online === null) return null;
-  return (
+  return online ? null : (
     <div
-      className={`fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg font-bold text-sm transition-all ${
-        online ? "bg-green-700 text-white" : "bg-red-700 text-white"
-      }`}
+      className="fixed bottom-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg font-bold text-sm bg-red-700 text-white"
       style={{ pointerEvents: "none" }}
+      role="status"
+      aria-live="polite"
     >
-      {online ? "Online" : "Modo Offline: continue usando, dados serão sincronizados."}
+      Sem rede: não atualize a página nem execute ações.
     </div>
   );
 }
 
 export default function App({ Component, pageProps }: AppProps) {
+  // Remove qualquer Service Worker prévio e limpa caches SW
   useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
-      return;
+    if (typeof window === 'undefined') return;
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(()=>{});
     }
-    // Registra o SW também em desenvolvimento para permitir teste offline
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    if ('caches' in window) {
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).catch(()=>{});
+    }
   }, []);
   return (
     <SessionProvider session={pageProps.session}>

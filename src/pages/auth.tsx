@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
+import { APP_NAME } from '@/config/app';
 
 export default function AuthPage() {
   const [pin, setPin] = useState('');
@@ -18,7 +19,7 @@ export default function AuthPage() {
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen app-gradient-bg overflow-hidden">
       <form onSubmit={handleSubmit} className="p-8 rounded shadow-md w-80 theme-surface theme-border border">
-        <h1 className="text-2xl font-bold text-center text-white mb-6">Login PDV Burguer</h1>
+        <h1 className="text-2xl font-bold text-center text-white mb-6">Login {APP_NAME}</h1>
         <input
           type="password"
           maxLength={4}

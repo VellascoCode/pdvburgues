@@ -4,6 +4,9 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#000000" />
+        <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
         {/* Pre-apply saved theme to avoid flicker and ensure BG shows */}
         <script
           dangerouslySetInnerHTML={{

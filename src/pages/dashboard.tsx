@@ -2,21 +2,22 @@ import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import React from "react";
-import { useTheme } from "@/context/ThemeContext";
-import { signOut } from "next-auth/react";
-import { FaCheckCircle, FaMotorcycle, FaUtensils, FaClock, FaTimesCircle, FaSearch, FaBell, FaUser, FaSignOutAlt, FaHourglassHalf, FaShoppingBag, FaHamburger, FaCoffee, FaPlus, FaBan, FaTimes, FaEyeSlash } from "react-icons/fa";
+import { FaCheckCircle, FaMotorcycle, FaUtensils, FaClock, FaTimesCircle, FaHourglassHalf, FaShoppingBag, FaHamburger, FaCoffee, FaPlus, FaBan, FaEyeSlash, FaTimes } from "react-icons/fa";
 import type { IconType } from "react-icons";
-import { motion } from "framer-motion";
-import {
-  listarPedidos,
-  salvarPedido,
-  atualizarStatusPedido,
-  limparPedidos,
-  Pedido,
-} from "../utils/indexedDB";
+import { AnimatePresence } from "framer-motion";
+import type { Pedido } from "../utils/indexedDB";
+import NavTop from "@/components/NavTop";
 import PedidoCard from "../components/PedidoCard";
-import PedidoDetalhesModal from "../components/PedidoDetalhesModal";
+import dynamic from "next/dynamic";
+const PedidoDetalhesModal = dynamic(() => import("../components/PedidoDetalhesModal"), { ssr: false });
+import NovoPedidoModalComponent from "@/components/NovoPedidoModal";
 import { pedidoEstaAtrasado } from "../utils/pedidoTempo";
+import type { GetServerSideProps } from 'next';
+import type { Session } from 'next-auth';
+import { getServerSession } from 'next-auth';
+import { authOptions } from './api/auth/[...nextauth]';
+import { getDb } from '@/lib/mongodb';
+import { playUiSound } from "../utils/sound";
 
 const statusList: {
   key: string;
@@ -76,150 +77,29 @@ function StatCard({ icon: Icon, label, value, color }: { icon: IconType, label: 
       </div>
     </div>
   );
+ 
 }
 
-import { playUiSound } from "../utils/sound";
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const session = await getServerSession(ctx.req, ctx.res, authOptions);
+  type SessionWithAccess = Session & { user?: { access?: string; type?: number } };
+  const s = session as SessionWithAccess | null;
+  if (!s || !s.user?.access) {
+    return { redirect: { destination: '/', permanent: false } };
+  }
+  try {
+    const access = s.user.access as string;
+    const db = await getDb();
+    const user = await db.collection('users').findOne({ access }, { projection: { _id: 0, status: 1, type: 1 } });
+    if (!user || user.status !== 1) {
+      return { redirect: { destination: '/', permanent: false } };
+    }
+  } catch {}
+  return { props: {} };
+};
+// removed old Header: NavTop is the unified navigation
 
-function Header({ onSearch, hiddenCols, onUnhide, onNovoPedido, onSeed, seedDisabled }: { onSearch: (term: string) => void; hiddenCols: string[]; onUnhide: (key: string) => void; onNovoPedido: () => void; onSeed: () => void; seedDisabled: boolean; }) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [openCols, setOpenCols] = useState(false);
-  const [openTheme, setOpenTheme] = useState(false);
-  const { theme, setTheme } = useTheme();
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-    onSearch(e.target.value);
-  };
-
-  return (
-    <header className="bg-zinc-900/10 backdrop-blur-xl border-b border-zinc-800/50 sticky top-0 z-50 shadow-2xl theme-surface theme-border">
-      <div className="px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold brand-gradient bg-clip-text text-transparent whitespace-nowrap">
-              PDV Burguer
-            </h1>
-            <div className="hidden lg:block h-6 w-px bg-zinc-700"></div>
-            <div className="hidden lg:block text-sm text-zinc-400 whitespace-nowrap">
-              Painel de Atendimento
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm" />
-              <input
-                type="text"
-                placeholder="Buscar pedido..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                className="w-full rounded-lg pl-10 pr-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-orange-500/50 transition-all theme-surface theme-border border"
-              />
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-3 relative">
-            <button
-              className="px-3 py-2 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-600/40 flex items-center gap-2"
-              onMouseEnter={() => playUiSound('hover')}
-              onClick={() => { playUiSound('click'); onNovoPedido(); }}
-            >
-              + Novo Pedido
-            </button>
-            <button
-              className={`px-3 py-2 rounded-lg border ${seedDisabled ? 'bg-zinc-900/50 text-zinc-500 border-zinc-800 cursor-not-allowed' : 'bg-zinc-800/50 hover:bg-zinc-800 text-zinc-300 border-zinc-700'}`}
-              onMouseEnter={() => { if (!seedDisabled) playUiSound('hover'); }}
-              onClick={() => { if (!seedDisabled) { playUiSound('click'); onSeed(); } }}
-              title={seedDisabled ? 'Desabilitado: já existem pedidos no banco' : 'Popular banco com mock'}
-              disabled={seedDisabled}
-            >
-              Popular Banco
-            </button>
-            <button className="relative p-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-400 hover:text-zinc-200" onMouseEnter={() => playUiSound('hover')} onClick={() => playUiSound('click')}>
-              <FaBell className="text-lg" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full text-white text-[10px] flex items-center justify-center font-bold">
-                3
-              </span>
-            </button>
-            <button className="p-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-400 hover:text-zinc-200" onMouseEnter={() => playUiSound('hover')} onClick={() => playUiSound('click')}>
-              <FaUser className="text-lg" />
-            </button>
-            <button
-              className="px-3 py-2 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-300 border border-zinc-700 flex items-center gap-2"
-              onMouseEnter={() => playUiSound('hover')}
-              onClick={() => { playUiSound('click'); setOpenCols(v => !v); }}
-              title="Colunas ocultas"
-            >
-              <FaEyeSlash />
-              Colunas {hiddenCols.length > 0 ? `(${hiddenCols.length})` : ''}
-            </button>
-            {/* Theme dropdown */}
-            <button
-              className="px-3 py-2 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-300 border border-zinc-700 flex items-center gap-2"
-              onMouseEnter={() => playUiSound('hover')}
-              onClick={() => { playUiSound('click'); setOpenTheme(v => !v); setOpenCols(false); }}
-              title="Tema e Fundo"
-            >
-              Tema
-            </button>
-            {openTheme && (
-              <div className="absolute right-0 top-12 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl p-2 z-50 min-w-60">
-                <div className="text-xs text-zinc-500 px-2 pb-1">Escolher tema</div>
-                {(['dark','light','code'] as const).map(t => (
-                  <button
-                    key={t}
-                    className={`w-full text-left text-sm rounded-lg px-2 py-1.5 border ${theme===t ? 'bg-orange-500/15 border-orange-600 text-orange-300' : 'bg-transparent border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`}
-                    onMouseEnter={() => playUiSound('hover')}
-                    onClick={() => { playUiSound('click'); setTheme(t); setOpenTheme(false); }}
-                  >
-                    {t.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            )}
-            {openCols && hiddenCols.length > 0 && (
-              <div className="absolute right-0 top-12 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl p-2 z-50 min-w-60">
-                <div className="text-xs text-zinc-500 px-2 pb-1">Reexibir colunas</div>
-                {hiddenCols.map(key => {
-                  const meta = statusList.find(s=>s.key===key);
-                  const colorMap: Record<string,string> = {
-                    EM_AGUARDO:'text-gray-300 border-gray-500 bg-gray-500/15',
-                    EM_PREPARO:'text-orange-300 border-orange-500 bg-orange-500/15',
-                    PRONTO:'text-yellow-300 border-yellow-500 bg-yellow-500/15',
-                    EM_ROTA:'text-blue-300 border-blue-500 bg-blue-500/15',
-                    COMPLETO:'text-green-300 border-green-500 bg-green-500/15'
-                  };
-                  const cls = colorMap[key] || 'text-zinc-300 border-zinc-600 bg-zinc-700/15';
-                  return (
-                    <button
-                      key={key}
-                      className={`w-full text-left text-sm rounded-lg px-2 py-1.5 border ${cls} hover:opacity-90 flex items-center justify-between`}
-                      onMouseEnter={() => playUiSound('hover')}
-                      onClick={() => { playUiSound('click'); onUnhide(key); setOpenCols(false); }}
-                    >
-                      <span>{meta?.label || key}</span>
-                      <span className="text-xs opacity-80">Mostrar</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <button
-              onClick={() => signOut({ callbackUrl: "/" })}
-              onMouseEnter={() => playUiSound('hover')}
-              onMouseDown={() => playUiSound('click')}
-              className="p-2.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 transition-all text-red-400 hover:text-red-300 border border-red-500/20"
-            >
-              <FaSignOutAlt className="text-lg" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-}
+// Old Header component removed (NavTop replaces it)
 
 function ModalCancelados({ isOpen, onClose, pedidos, onStatusChange, now }: { 
   isOpen: boolean; 
@@ -228,25 +108,57 @@ function ModalCancelados({ isOpen, onClose, pedidos, onStatusChange, now }: {
   onStatusChange: (id: string, status: string) => void;
   now: number;
 }) {
+  const dialogId = 'modal-cancelados-title';
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const closeRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'Tab') {
+        const root = containerRef.current;
+        if (!root) return;
+        const focusables = root.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+        } else {
+          if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); prev?.focus(); };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-zinc-900 rounded-2xl border border-zinc-800 max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 flex items-center justify-center p-4" aria-labelledby={dialogId} aria-modal="true" role="dialog">
+      <div ref={containerRef} className="bg-zinc-900 rounded-2xl border border-zinc-800 max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col theme-surface theme-border">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-zinc-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-red-500/10 border border-red-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-red-500/10 border border-red-500 flex items-center justify-center" aria-hidden="true">
               <FaTimesCircle className="text-red-500 text-xl" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Pedidos Cancelados</h2>
+              <h2 id={dialogId} className="text-xl font-bold text-white">Pedidos Cancelados</h2>
               <p className="text-sm text-zinc-500">{pedidos.length} {pedidos.length === 1 ? 'pedido' : 'pedidos'}</p>
             </div>
           </div>
           <button
+            ref={closeRef}
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-zinc-800 transition-all text-zinc-400 hover:text-white"
+            aria-label="Fechar"
           >
             <FaTimes className="text-xl" />
           </button>
@@ -256,7 +168,7 @@ function ModalCancelados({ isOpen, onClose, pedidos, onStatusChange, now }: {
         <div className="flex-1 overflow-y-auto p-6">
           {pedidos.length === 0 ? (
             <div className="text-center py-12 text-zinc-600">
-              <FaTimesCircle className="text-4xl mx-auto mb-3 opacity-30" />
+              <FaTimesCircle className="text-4xl mx-auto mb-3 opacity-30" aria-hidden="true" />
               <p className="text-sm">Nenhum pedido cancelado</p>
             </div>
           ) : (
@@ -284,8 +196,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [clock, setClock] = useState<number | null>(null);
   const [serverCount, setServerCount] = useState<number>(0);
-  const [isOffline, setIsOffline] = useState<boolean>(false);
-  const [statusMsg, setStatusMsg] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showCancelados, setShowCancelados] = useState(false);
   const [hiddenCols, setHiddenCols] = useState<string[]>([]);
@@ -295,26 +205,6 @@ export default function Dashboard() {
   const [showMobileCols, setShowMobileCols] = useState(false);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [showNovo, setShowNovo] = useState(false);
-  const [saving, setSaving] = useState(false);
-  // removido: savingDetalhe (controle agora dentro do modal separado)
-  const novoDefault = useMemo(() => ({
-    id: Math.random().toString(36).slice(2,8).toUpperCase(),
-    status: 'EM_AGUARDO',
-    itens: [
-      { nome: 'X-Burger', quantidade: 1, preco: 18.9 },
-      { nome: 'Coca-Cola 350ml', quantidade: 1, preco: 6 }
-    ],
-    pagamento: 'PENDENTE',
-    entrega: 'Delivery',
-    observacoes: '',
-    cliente: {
-      id: Math.random().toString(36).slice(2,6).toUpperCase(),
-      nick: ['Lobo','Raposa','Tigre','Leão','Falcão'][Math.floor(Math.random()*5)],
-      genero: ['M','F','O'][Math.floor(Math.random()*3)] as 'M'|'F'|'O',
-      estrelas: 4, gasto: 3, simpatia: 4,
-    },
-  } as unknown as Pedido), []);
-  const [novoPedido, setNovoPedido] = useState<Pedido>(novoDefault);
   
   const { status } = useSession({
     required: true,
@@ -330,156 +220,72 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    async function fetchPedidos() {
-      setLoading(true);
-      let lista: Pedido[] = [];
-      try {
-        const resp = await fetch('/api/pedidos');
-        if (resp.ok) {
-          lista = await resp.json();
-          setServerCount(Array.isArray(lista) ? lista.length : 0);
-          setIsOffline(false);
-          setStatusMsg("");
-          // Sincroniza IndexedDB somente com dados do servidor
-          try { await limparPedidos(); } catch {}
-          for (const p of lista) await salvarPedido(p);
-        } else {
-          // Fallback somente offline: mostra o que houver no IndexedDB (sem mock)
-          lista = await listarPedidos();
-          setServerCount(0);
-          setIsOffline(true);
-          setStatusMsg("Servidor indisponível. Usando dados locais. Sincroniza ao reconectar.");
-        }
-      } catch {
-        // Offline: usa IndexedDB
-        lista = await listarPedidos();
-        setServerCount(0);
-        setIsOffline(!navigator.onLine);
-        setStatusMsg("Sem conexão. Usando dados locais. Sincroniza ao reconectar.");
-      }
+  async function reloadFromServer() {
+    setLoading(true);
+    try {
+      const resp = await fetch('/api/pedidos');
+      const lista = resp.ok ? await resp.json() : [];
       setPedidos(lista);
-      setLoading(false);
-    }
-    fetchPedidos();
-  }, [status]);
+      setServerCount(Array.isArray(lista) ? lista.length : 0);
+    } catch {
+      setPedidos([]);
+      setServerCount(0);
+    } finally { setLoading(false); }
+  }
 
   useEffect(() => {
-    const onOnline = () => {
-      setIsOffline(false);
-      setStatusMsg("Reconectado. Sincronizando...");
-      // tenta ressincronizar
-      (async () => {
-        try {
-          const resp = await fetch('/api/pedidos');
-          if (resp.ok) {
-            const lista = await resp.json();
-            try { await limparPedidos(); } catch {}
-            for (const p of lista) await salvarPedido(p);
-            setPedidos(lista);
-            setServerCount(Array.isArray(lista) ? lista.length : 0);
-            setStatusMsg("");
-          }
-        } catch { /* mantém dados locais */ }
-      })();
-    };
-    const onOffline = () => {
-      setIsOffline(true);
-      setStatusMsg("Conexão perdida. Usando dados locais.");
-    };
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-    return () => {
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-    };
-  }, []);
+    if (status !== "authenticated") return;
+    reloadFromServer();
+  }, [status]);
+
+  // Removido: listeners de online/offline e sincronização IndexedDB
 
   const handleStatus = async (id: string, novoStatus: string) => {
     try { await fetch(`/api/pedidos/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: novoStatus }) }); } catch {}
-    await atualizarStatusPedido(id, novoStatus);
-    const lista = await listarPedidos();
-    setPedidos(lista);
+    await reloadFromServer();
   };
 
-  const filteredPedidos = searchTerm
-    ? pedidos.filter(pedido =>
-        pedido.id.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : pedidos;
+  const filteredPedidos = useMemo(() => {
+    if (!searchTerm) return pedidos;
+    const term = searchTerm.toLowerCase();
+    return pedidos.filter(p => p.id.toLowerCase().includes(term));
+  }, [pedidos, searchTerm]);
 
   // Filtra pedidos que não são cancelados para as colunas
-  const pedidosAtivos = filteredPedidos.filter(p => p.status !== 'CANCELADO');
-  const pedidosCancelados = filteredPedidos.filter(p => p.status === 'CANCELADO');
+  const pedidosAtivos = useMemo(() => filteredPedidos.filter(p => p.status !== 'CANCELADO'), [filteredPedidos]);
+  const pedidosCancelados = useMemo(() => filteredPedidos.filter(p => p.status === 'CANCELADO'), [filteredPedidos]);
 
   // Estatísticas (conta todos, incluindo cancelados)
-  const totalPedidos = filteredPedidos.length;
-  const totalItens = filteredPedidos.reduce((acc, p) => {
-    const itens = p.itens || [];
-    return acc + itens.reduce((sum, item) => {
-      if (typeof item === 'string') return sum + 1;
-      return sum + (item.quantidade || 1);
-    }, 0);
-  }, 0);
-  
-  const sanduiches = filteredPedidos.reduce((acc, p) => {
-    const itens = p.itens || [];
-    return acc + itens.filter(item => {
-      const nome = typeof item === 'string' ? item : item.nome;
-      return nome.toLowerCase().includes('burger') || nome.toLowerCase().includes('x-');
-    }).reduce((sum, item) => {
-      if (typeof item === 'string') return sum + 1;
-      return sum + (item.quantidade || 1);
-    }, 0);
-  }, 0);
-  
-  const bebidas = filteredPedidos.reduce((acc, p) => {
-    const itens = p.itens || [];
-    return acc + itens.filter(item => {
-      const nome = typeof item === 'string' ? item : item.nome;
-      return nome.toLowerCase().includes('coca') || 
-             nome.toLowerCase().includes('suco') || 
-             nome.toLowerCase().includes('água') ||
-             nome.toLowerCase().includes('shake') ||
-             nome.toLowerCase().includes('refrigerante') ||
-             nome.toLowerCase().includes('guaraná');
-    }).reduce((sum, item) => {
-      if (typeof item === 'string') return sum + 1;
-      return sum + (item.quantidade || 1);
-    }, 0);
-  }, 0);
-  
-  const extras = filteredPedidos.reduce((acc, p) => {
-    const itens = p.itens || [];
-    return acc + itens.filter(item => {
-      const nome = typeof item === 'string' ? item : item.nome;
-      return nome.toLowerCase().includes('batata') || 
-             nome.toLowerCase().includes('onion') ||
-             nome.toLowerCase().includes('rings');
-    }).reduce((sum, item) => {
-      if (typeof item === 'string') return sum + 1;
-      return sum + (item.quantidade || 1);
-    }, 0);
-  }, 0);
-  
-  const cancelados = pedidosCancelados.length;
-  const vendidos = filteredPedidos.filter(p => p.status === 'COMPLETO').length;
-  const emAndamento = filteredPedidos.filter(p => 
-    p.status === 'EM_AGUARDO' || p.status === 'EM_PREPARO' || p.status === 'PRONTO' || p.status === 'EM_ROTA'
-  ).length;
+  const { totalPedidos, totalItens, sanduiches, bebidas, extras, cancelados, vendidos, emAndamento } = useMemo(() => {
+    let totalItens = 0, sanduiches = 0, bebidas = 0, extras = 0, cancelados = 0, vendidos = 0, emAndamento = 0;
+    for (const p of filteredPedidos) {
+      const itens = p.itens || [];
+      for (const item of itens) {
+        if (typeof item === 'string') { totalItens += 1; continue; }
+        const qty = item.quantidade || 1; totalItens += qty;
+        const nome = (item.nome || '').toLowerCase();
+        if (nome.includes('burger') || nome.includes('x-')) sanduiches += qty;
+        else if (nome.includes('coca') || nome.includes('suco') || nome.includes('água') || nome.includes('agua') || nome.includes('shake') || nome.includes('refrigerante') || nome.includes('guaran')) bebidas += qty;
+        else if (nome.includes('batata') || nome.includes('onion') || nome.includes('rings')) extras += qty;
+      }
+      if (p.status === 'CANCELADO') cancelados++;
+      if (p.status === 'COMPLETO') vendidos++;
+      if (p.status === 'EM_AGUARDO' || p.status === 'EM_PREPARO' || p.status === 'PRONTO' || p.status === 'EM_ROTA') emAndamento++;
+    }
+    return { totalPedidos: filteredPedidos.length, totalItens, sanduiches, bebidas, extras, cancelados, vendidos, emAndamento };
+  }, [filteredPedidos]);
 
   return (
     <div className="min-h-screen app-gradient-bg relative">
-      <Header onSearch={setSearchTerm} hiddenCols={hiddenCols} onUnhide={(key)=> setHiddenCols(prev=> prev.filter(k=>k!==key))} onNovoPedido={() => { setNovoPedido(novoDefault); setShowNovo(true); }} onSeed={async () => { try { await fetch('/api/pedidos/seed', { method: 'POST' }); } catch {} setTimeout(()=>window.location.reload(), 300); }} seedDisabled={serverCount > 0} />
-      {statusMsg && (
-        <div className="sticky top-0 z-40 px-4 py-2 text-sm theme-surface theme-border border-b">
-          <div className="max-w-7xl mx-auto flex items-center gap-2">
-            <span className={`inline-block w-2 h-2 rounded-full ${isOffline ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
-            <span className="theme-text">{statusMsg}</span>
-          </div>
-        </div>
-      )}
+      <NavTop
+        onSearch={setSearchTerm}
+        hiddenCols={hiddenCols}
+        onUnhide={(key: string)=> setHiddenCols(prev=> prev.filter(k=>k!==key))}
+        onNovoPedido={() => setShowNovo(true)}
+        onSeed={async () => { try { await fetch('/api/pedidos/seed', { method: 'POST' }); await reloadFromServer(); } catch {} }}
+        seedDisabled={serverCount > 0}
+      />
+      {/* Removido: banner de status offline/online */}
       
       <main className="p-4 sm:p-5 md:p-6">
         {/* Stats Cards */}
@@ -615,7 +421,7 @@ export default function Dashboard() {
                   </div>
                   
                   {statusItem.key !== 'COMPLETO' && atrasados.length > 0 && (
-                    <div className="mt-2 bg-red-500/20 border border-red-500 rounded-lg px-3 py-1.5 flex items-center justify-center gap-2 animate-pulse">
+                    <div className="mt-2 bg-red-500/20 border border-red-500 rounded-lg px-3 py-1.5 flex items-center justify-center gap-2">
                       <FaClock className="text-red-400 text-xs" />
                       <span className="text-xs font-semibold text-red-400">
                         {atrasados.length} {atrasados.length === 1 ? 'atraso' : 'atrasos'}
@@ -727,39 +533,20 @@ export default function Dashboard() {
         now={clock ?? 0}
       />
 
-      {/* Modal Novo Pedido */}
-      {showNovo && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <div className="absolute inset-0 bg-black/80" onClick={() => setShowNovo(false)} />
-          <motion.form className="relative bg-zinc-900 rounded-2xl border border-zinc-800 w-full max-w-2xl p-5 space-y-4" initial={{ y: 20, scale: 0.98 }} animate={{ y:0, scale:1 }} onSubmit={async (e)=>{ e.preventDefault(); setSaving(true); try { await fetch('/api/pedidos', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(novoPedido) }); await salvarPedido(novoPedido); const lista = await listarPedidos(); setPedidos(lista); setShowNovo(false); } finally { setSaving(false);} }}>
-            <h3 className="text-lg font-bold text-white">Novo Pedido</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <label className="text-sm text-zinc-300">Cliente Nick
-                <input className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm" value={novoPedido.cliente?.nick || ''} onChange={(e)=> setNovoPedido({ ...novoPedido, cliente: { ...(novoPedido.cliente||{ id: Math.random().toString(36).slice(2,6).toUpperCase(), nick:'', genero:'O' as 'M'|'F'|'O', estrelas:3, gasto:3, simpatia:3 }), nick: e.target.value } })} />
-              </label>
-              <label className="text-sm text-zinc-300">Pagamento
-                <input className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm" value={novoPedido.pagamento || ''} onChange={(e)=> setNovoPedido({ ...novoPedido, pagamento: e.target.value })} />
-              </label>
-              <label className="text-sm text-zinc-300">Entrega
-                <input className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm" value={novoPedido.entrega || ''} onChange={(e)=> setNovoPedido({ ...novoPedido, entrega: e.target.value })} />
-              </label>
-              <label className="text-sm text-zinc-300">Observações
-                <input className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm" value={novoPedido.observacoes || ''} onChange={(e)=> setNovoPedido({ ...novoPedido, observacoes: e.target.value })} />
-              </label>
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <button type="button" className="px-3 py-1.5 rounded border border-zinc-700 text-zinc-300" onClick={()=> setShowNovo(false)}>Cancelar</button>
-              <button type="submit" className="px-3 py-1.5 rounded bg-orange-600 text-white disabled:opacity-50" disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</button>
-            </div>
-          </motion.form>
-        </motion.div>
-      )}
+  {/* Modal Novo Pedido */}
+      <AnimatePresence>
+        {showNovo && (
+          <NovoPedidoModalComponent onClose={() => setShowNovo(false)} onSaved={async()=>{ await reloadFromServer(); }} />
+        )}
+      </AnimatePresence>
 
-      {/* Modal de Detalhes */}
-      <PedidoDetalhesModal open={Boolean(detalheId)} id={detalheId} onClose={() => setDetalheId(null)} />
+      {/* Modal de Detalhes (carregado e montado somente quando aberto) */}
+      {Boolean(detalheId) && (
+        <PedidoDetalhesModal open={true} id={detalheId} onClose={() => setDetalheId(null)} />
+      )}
 
   
     </div>
   );
+
 }
-  

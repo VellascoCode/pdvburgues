@@ -1,8 +1,10 @@
-PDV Burguer – Documentação Técnica do MVP
+Cortex PDV – Documentação Técnica do MVP
 Visão Geral do Projeto
-PDV Burguer é um sistema de Ponto de Venda (PDV) voltado para lanchonetes e hamburguerias, com foco em robustez e facilidade de uso. Este documento detalha a arquitetura e funcionalidades de um MVP (Produto Mínimo Viável) completo do sistema, incluindo design UI/UX, principais fluxos operacionais, suporte offline-first e integração com um backend Node/MongoDB. O objetivo é fornecer um guia técnico abrangente – desde escolhas de paleta de cores até estrutura de dados e sincronização offline – para implementar o PDV Burguer de forma eficiente e escalável.
+Cortex PDV é um sistema de Ponto de Venda (PDV) voltado para lanchonetes e hamburguerias, com foco em robustez e facilidade de uso. Este documento detalha a arquitetura e funcionalidades de um MVP (Produto Mínimo Viável) completo do sistema, incluindo design UI/UX, principais fluxos operacionais, suporte offline-first e integração com um backend Node/MongoDB. O objetivo é fornecer um guia técnico abrangente – desde escolhas de paleta de cores até estrutura de dados e sincronização offline – para implementar a solução de forma eficiente e escalável.
 Branding e UI/UX
-O design visual do PDV Burguer seguirá uma estética dark minimalista, enfatizando usabilidade em ambiente de loja. Abaixo estão os principais requisitos de branding e experiência do usuário:
+O design visual do Cortex PDV seguirá uma estética dark minimalista, enfatizando usabilidade em ambiente de loja. Abaixo estão os principais requisitos de branding e experiência do usuário:
+Classes utilitárias de tema: Todos os componentes devem respeitar o tema ativo (Dark, Light, Code). Utilize as classes utilitárias globais `theme-surface`, `theme-border` e `theme-text` (definidas em `src/styles/globals.css`) para superfícies, bordas e textos, ou as variáveis CSS do tema (`--panel-bg`, `--panel-border`, `--text-primary`). Isso evita divergências visuais entre temas e elimina hardcodes de cores.
+Background: Por solicitação do cliente, o BG de ícones foi removido. Enquanto a imagem oficial não é fornecida, utilizamos um gradiente leve (`.app-gradient-bg`) com alpha por tema. Quando a imagem chegar, aplicaremos como `cover` otimizado.
 Paleta de cores: Interface de fundo escuro (tons de preto/chumbo) com detalhes em dourado, vermelho, laranja e azul escuro para realçar elementos importantes. Essas cores serão usadas para indicar estados (por exemplo, vermelho/laranja para alertas ou status de preparo, dourado para destaques de marca e azul escuro para fundos ou textos de destaque). Deve-se escolher tons harmônicos e de bom contraste para acessibilidade. Por exemplo, botões primários podem usar laranja ou vermelho para chamar atenção, enquanto detalhes de texto ou ícones podem usar dourado sobre o fundo escuro. Uma paleta coesa reforça a identidade da marca e melhora a experiência do usuário.
 Responsividade multi-dispositivo: A aplicação será responsiva, adaptando-se perfeitamente a celulares, tablets e desktops. O layout deve utilizar técnicas de design mobile-first e grid flexível para garantir que telas pequenas (como smartphones em uso de entregadores ou atendentes) exibam as informações de forma clara, assim como monitores maiores no caixa ou cozinha. Componentes como cabeçalhos, menus e cards de pedido devem se reorganizar ou redimensionar conforme o espaço disponível, mantendo a usabilidade.
 Ícones com React Icons: Para consistência visual e performance, serão utilizados ícones vetoriais através da biblioteca React Icons. Essa biblioteca permite importar apenas os ícones necessários de diversos packs (Font Awesome, Material Design, etc.), facilitando a inclusão de ícones comuns (como carrinho de compras, lista, edição, exclusão, etc.) sem sobrecarregar o app
@@ -14,39 +16,41 @@ dev.to
 Feedback sonoro leve: Além das animações, o sistema terá pequenos sons para confirmar ações importantes (como um som breve ao finalizar um pedido ou notificação de pedido pronto). Esses sons devem ser curtos e discretos, carregados embutidos na aplicação (para não exigir downloads adicionais). Por exemplo, um “bipe” baixo volume pode tocar quando um novo pedido é registrado, alertando atendentes. É fundamental que os sons sejam opcionais e não intrusivos, complementando a UI sem distrair.
 Componentes clicáveis e acessíveis: Os painéis, cards e botões na interface serão desenhados com áreas clicáveis amplas, pensando nos funcionários que podem estar usando telas de toque ou em ritmo acelerado. Cards de pedido deverão reagir ao toque/clique (por exemplo, abrindo detalhes ou opções de ação) e possuir destaque ao receber foco (para acessibilidade via teclado). Também serão adotados princípios de Design Sistemático, padronizando componentes (botões, modais, listas) para manter consistência. A fonte deve ser legível em ambientes de iluminação variada, e o contraste de cor atender aos padrões WCAG para texto sobre fundo escuro.
 Funcionalidades Principais
-Nesta seção são detalhadas as funcionalidades centrais do PDV Burguer, descrevendo o fluxo e comportamento esperado de cada módulo do sistema.
+Nesta seção são detalhadas as funcionalidades centrais do Cortex PDV, descrevendo o fluxo e comportamento esperado de cada módulo do sistema.
 Painel de PDV – Fluxo de Pedidos por Status
 O painel principal do PDV exibirá os pedidos em andamento organizados por status, permitindo que a equipe acompanhe facilmente o progresso de cada um. A interface pode ser estruturada em colunas ou seções, simulando um quadro Kanban para os status principais do pedido:
-Status “Em preparação”: Pedidos recém-confirmados que a cozinha está preparando. Estes podem aparecer na primeira coluna/lista. Cada item listará o número/ID do pedido, itens solicitados e tempo decorrido desde o início (para controle de tempo de preparo). Os cartões de pedido em preparação podem ter cor de fundo ou borda laranja, indicando atenção.
+Status “Em Aguardo/Preparo”: A implementação atual separa “Em Aguardo” (entrada) e “Em Preparo” (produção). O primeiro estágio (antes chamado genericamente de “Em preparação” nesta doc) agora é “Em Aguardo”; em seguida, “Em Preparo”. Cada item listará ID, itens e tempo decorrido desde o registro.
 Status “Pronto”: Pedidos que já foram preparados e estão prontos para entrega ou retirada. Ao mudar um pedido para “Pronto”, ele passa para a próxima coluna. Esses cartões podem usar destaque em dourado ou verde suave, indicando que estão prontos mas aguardando o próximo passo. Opcionalmente, pode-se exibir um pequeno ícone (por exemplo, um ✔️) ou sinal sonoro para chamar atenção de que o pedido está pronto.
 Status “Entregue”: Pedidos já entregues ao cliente (ou retirados). Quando o funcionário marca o pedido como entregue, ele sai das listas ativas de preparação e pronto e vai para o histórico. Esse histórico serve para consulta rápida caso necessário (ex.: conferir se um pedido já foi entregue), e pode ser limpo ou arquivado periodicamente. Cartões entregues podem ter um estilo mais apagado ou etiquetados em azul escuro para diferenciar.
 
-O painel seguirá um layout com cinco colunas fixas — Em preparação, Pronto (aguardando motoboy), Cancelado, Em rota e Entregue — garantindo que cada status principal do fluxo fique visível lado a lado. Cada coluna terá um cabeçalho com o título, um ícone representativo e um contador claro do número de cards presentes naquele status, facilitando o acompanhamento das filas sem precisar abrir nenhum card. Abaixo do título, cada coluna exibe um subtítulo auxiliar que reforça o significado operacional do status (ex.: Em preparação: “Pedido recebido, sendo preparado”; Pronto: “Aguardando motoboy”; Cancelado: “Pedidos cancelados”; Em rota: “Aguardando confirmação do cliente”; Entregue: “Pedidos confirmados e finalizados”). As colunas se reorganizam em uma grade responsiva/mobile-first (1 → 2 → 3 → 5 colunas conforme o espaço), preservando o aspecto bem diagramado em qualquer dispositivo.
+O painel segue layout com cinco colunas — Em Aguardo, Em Preparo, Pronto (aguardando motoboy), Em Rota e Completo. Pedidos “Cancelados” não ocupam coluna fixa: são acessados por um atalho de métricas que abre um modal dedicado, mantendo o fluxo principal focado nos pedidos ativos. Cada coluna possui cabeçalho com título, ícone e contador, além de subtítulo operacional. A grade é responsiva/mobile‑first, e colunas podem ser ocultadas e reexibidas pelo menu “Colunas”.
 
-Os cards de pedido dentro dessas colunas mostrarão o tempo decorrido desde o registro (calculado a partir do timestamp do pedido) e incluirão um badge visual de “Atraso” sempre que esse tempo superar 15 minutos no mesmo status. Além do badge no card, cada coluna exibirá um contador de atrasos ativos (com animação ou destaque em vermelho) para avisar rapidamente quando um ou mais pedidos exigem urgência. A coluna “Completo” e a coluna “Cancelado” não exibem atrasos.
+Os cards de pedido dentro dessas colunas mostram o tempo decorrido desde o registro (calculado a partir do timestamp do pedido) e incluem badge visual de “Atraso” quando ultrapassa 15 minutos. Além do badge no card, cada coluna exibe um contador de atrasos ativos. Em “Completo” e “Cancelado” não há alerta de atraso; em “Cancelados” exibimos no modal a lista com timestamps.
 No painel, cada card de pedido será clicável para ver detalhes ou realizar ações rápidas (como alterar status). As ações comuns (mudar de “Em preparação” para “Pronto”, ou “Pronto” para “Entregue”) podem ser realizadas com um único clique, por exemplo, através de botões “Marcar como Pronto” ou “Marcar como Entregue” diretamente no card ou via drag and drop entre colunas. Isso torna a operação ágil, crucial num ambiente de restaurante. Além disso, é importante que o painel atualize em tempo real ou quase em tempo real. Se vários terminais estiverem em uso (por exemplo, um tablet na cozinha e outro no caixa), mudanças de status feitas em um dispositivo devem refletir nos outros rapidamente. Isso pode ser conseguido via sincronização com backend (quando online) ou via uma store global local. No modo online, uma técnica seria utilizar WebSockets ou SSE para push de atualizações de status; porém, dado o foco offline-first, o sistema pode optar por um esquema de polling leve ou atualização manual combinada com sincronização quando reconectar.
 Modal de Novo Pedido
 Ao iniciar um novo pedido (por exemplo, quando um cliente faz um pedido no balcão ou pelo telefone), o atendente usará um modal de “Novo Pedido” que facilita a montagem do pedido:
 Seleção de itens (lanches, bebidas, adicionais): O modal apresenta o menu de produtos cadastrados, possivelmente organizados por categorias (ex: Hambúrgueres, Bebidas, Acompanhamentos). Cada produto pode ter um botão “adicionar” ou um seletor de quantidade. A UI pode usar cards ou listas com o nome do item, preço e talvez uma foto pequena ou ícone representativo (ex.: um ícone de 🍔 para hamburguer). Adicionais ou opções customizáveis (como ponto da carne, extras) podem surgir como sub-opções quando um item é selecionado.
-Resumo do pedido: Conforme itens são selecionados, uma lista ou seção no modal mostrará o resumo do pedido (itens e quantidades, preços unitários e subtotal). O atendente pode revisar e remover itens se necessário. O total do pedido é calculado dinamicamente.
+Resumo do pedido: Conforme itens são selecionados, uma lista ou seção no modal mostrará o resumo do pedido (itens e quantidades, preços unitários e subtotal). O atendente pode revisar e remover itens se necessário. O total do pedido é calculado dinamicamente e o subtotal é atualizado em tempo real.
 Campos adicionais: Abaixo dos itens, o modal permite entrada de informações complementares do pedido:
 Entrega: Campo para endereço ou seleção de “Retirada no balcão”. Se for entrega, pode incluir endereço completo ou referência já cadastrada do cliente.
 Pagamento: Opções de método de pagamento (ex.: Dinheiro, Cartão, PIX). Pode incluir indicação se já pago ou se pagará na entrega.
 Observações: Campo de texto livre para observações do cliente (ex.: “Retirar cebola do lanche”, “Troco para R$50”, etc.).
 Status inicial: Por padrão, ao criar, o pedido inicia “Em preparação” (ou “Pendente” até a cozinha aceitar). Porém, poderia haver casos em que o atendente cadastra um pedido futuro ou agendado – nesses casos, poderia marcar status inicial diferenciado (ex.: Agendado). Para o MVP, assumimos que todo novo pedido entra imediatamente em preparação.
-Confirmação: Ao preencher tudo, o atendente confirma a criação do pedido. Nesse momento:
+Confirmação: Ao preencher tudo, o atendente confirma a criação do pedido. Antes de confirmar, se não houver método de pagamento selecionado, exibimos um aviso claro. Se o cliente solicitar troco e o valor recebido for menor que o total, destacamos com alerta visual. Nesse momento:
 O pedido é salvo no sistema (no backend ou local, conforme offline/online – detalhado mais à frente).
 Um ID único é gerado para o pedido (conforme padrão descrito adiante).
 O modal fecha com uma animação suave (por exemplo, usando Framer Motion) indicando sucesso, e o novo pedido aparece no painel principal na coluna “Em preparação”.
-Pode-se reproduzir um som de confirmação e mostrar um breve destaque no card recém-adicionado, para evidenciar a entrada do novo pedido.
+Pode-se reproduzir um som de confirmação e mostrar um breve destaque no card recém-adicionado, para evidenciar a entrada do novo pedido. Ao adicionar um item ao pedido, o sistema emite um som de click suave e um flash verde curto no card (“Item adicionado ✅”).
+
+Atalhos: Enter confirma; Esc cancela; Ctrl+1..9 alterna as categorias do catálogo na lista de produtos.
 Acompanhamento do Pedido pelo Cliente (Link Público)
-Uma funcionalidade inovadora do PDV Burguer é permitir que o cliente acompanhe o status do pedido em tempo real, através de um link público. Ao criar o pedido, o sistema gera um link (URL) único que pode ser compartilhado com o cliente (por exemplo, via QR code impresso no recibo, ou enviado por WhatsApp/SMS). Ao acessar esse link, o cliente verá uma página simples, com branding da hamburgueria, mostrando o status atual do pedido e possivelmente uma animação ou indicação visual correspondente:
+Uma funcionalidade inovadora do Cortex PDV é permitir que o cliente acompanhe o status do pedido em tempo real, através de um link público. Ao criar o pedido, o sistema gera um link (URL) único que pode ser compartilhado com o cliente (por exemplo, via QR code impresso no recibo, ou enviado por WhatsApp/SMS). Ao acessar esse link, o cliente verá uma página simples, com branding da hamburgueria, mostrando o status atual do pedido e possivelmente uma animação ou indicação visual correspondente:
 Por exemplo, se o pedido está “Em preparação”, a página pode mostrar um ícone de cozinheiro ou um spinner com a mensagem “Seu pedido está sendo preparado...”. Se “Pronto para entrega”, pode mostrar um ícone de check ou de entrega saindo. Esses feedbacks visuais mantêm o cliente informado e reduzem ansiedade/curiosidade sobre o pedido.
 A página deve atualizar automaticamente o status sem necessidade de refresh. Isso pode ser feito via polling periódico ao servidor (ex: a cada 30 segundos) para obter o status mais recente, ou via WebSocket para push de atualização instantânea quando online. Como MVP, um polling simples já cumpre o papel.
 Importante: o link não deve permitir acesso a dados sensíveis – ele pode ser protegido por um token incorporado na URL (ex: /rastreamento/1D1234?token=XYZ) para evitar que alguém descubra informações indevidas. Porém, dado que o ID já é não sequencial e misto, pode ser suficiente. Apenas o status e talvez os itens do pedido são mostrados ao cliente, não informações financeiras.
 Em termos de implementação no Next.js, podemos ter uma página dedicada (por exemplo, pages/pedido/[id].js) que ao ser acessada obtém do backend as informações de status do pedido e mantém atualização. Essa página não exige autenticação, mas só mostra dados limitados. No modo offline, vale notar que o acompanhamento pelo cliente depende do backend online – ou seja, se o PDV estiver offline (rodando apenas localmente), o cliente provavelmente não conseguirá acessar o status até que haja conexão e os dados sincronizem ao servidor. Uma alternativa seria o estabelecimento ter um servidor local acessível ao cliente (ex.: via LAN), mas isso foge do escopo. Para o MVP, assumimos que o link público funciona quando há conexão disponível e o pedido foi sincronizado. Caso contrário, o link poderia mostrar uma mensagem do tipo "Atualização de status temporariamente indisponível". Assim, é recomendável que os atendentes informem o cliente do status verbalmente se estiverem cientes de falta de conexão.
 Painel Administrativo (Cadastro de Produtos e Controle de Caixa)
-O PDV Burguer incluirá um painel administrativo acessível apenas a gerentes ou administradores, para gerenciar dados mestres e visualizar indicadores financeiros. As principais funções desse painel são:
+O Cortex PDV incluirá um painel administrativo acessível apenas a gerentes ou administradores, para gerenciar dados mestres e visualizar indicadores financeiros. As principais funções desse painel são:
 Cadastro de Produtos: Uma seção onde é possível cadastrar/editar/excluir produtos do menu (lanches, bebidas, etc.). Cada produto possui campos como nome, descrição, categoria, preço, se está ativo/em falta, e talvez uma imagem. O admin poderá adicionar novos produtos (que então ficam disponíveis no modal de pedidos), atualizar preços ou marcar itens como esgotados/indisponíveis momentaneamente. A interface pode ser uma tabela listando produtos com botões de ação para editar/excluir, e um formulário para adicionar/editar com validações (por exemplo, campos obrigatórios de nome e preço). Esse cadastro deve sincronizar com o banco de dados (MongoDB) para persistência. Em modo offline, as alterações devem ficar armazenadas localmente até a conexão retornar, garantindo que o atendente sempre tenha o cardápio atualizado.
 Controle de Fluxo de Caixa: Outra parte crucial é monitorar as vendas e o caixa da loja. O sistema deve permitir:
 Abertura de caixa: Registrar quando o caixa do dia é aberto, com valor inicial em dinheiro.
@@ -71,7 +75,7 @@ function gerarIdPedido() {
 console.log(gerarIdPedido());  // Saída: ex. "7G0832"
 No backend, pode-se optar por gerar esse ID customizado no momento de inserir no MongoDB (por exemplo, usando um hook ou função utilitária). Alternativamente, gerar no front (no caso offline) e usar esse ID como chave tanto local quanto no servidor. Deve-se assegurar unicidade – se gerar aleatório puro, há pequena chance de colisão; uma combinação de elementos (ex: data + seqüência) pode ser mais confiável. Para um MVP, a probabilidade de colisão aleatória (1 letra * 9 * 10000 combinações ≈ 234k possibilidades) é aceitável em operações de um restaurante, mas idealmente o backend poderia rejeitar duplicatas ou regenerar se necessário. Esse ID será exibido no painel e também é usado no link público para o cliente, por isso seu formato curto e amigável é importante. Exemplo de ID: 5A0451, onde 5 é o dígito, A a letra, e 0451 o número sequencial.
 Suporte Offline/Online (PWA Offline-First)
-Uma exigência chave do PDV Burguer é que ele funcione completamente offline, garantindo continuidade das operações mesmo sem Internet, e sincronize os dados com o servidor quando a conexão retornar. Essa abordagem offline-first trata a falta de conectividade não como exceção, mas como estado padrão esperado
+Uma exigência chave do Cortex PDV é que ele funcione completamente offline, garantindo continuidade das operações mesmo sem Internet, e sincronize os dados com o servidor quando a conexão retornar. Essa abordagem offline-first trata a falta de conectividade não como exceção, mas como estado padrão esperado
 devstarterpacks.com
 . A seguir, detalhamos a estratégia para implementação desse comportamento: Arquitetura de alto nível de uma PWA offline-first: o front-end (HTML, CSS, JS e Service Worker) roda no dispositivo do usuário, enquanto o back-end (APIs e banco de dados) roda no servidor
 learn.microsoft.com
@@ -81,17 +85,17 @@ Usaremos um Service Worker (SW) para gerenciar o cache dos arquivos estáticos d
 O SW será configurado para interceptar requisições dos recursos e responder com versões cacheadas quando offline. Podemos aplicar a estratégia Cache First para a maioria dos assets – ou seja, primeiro tenta do cache, e faz fetch de rede apenas se não estiver cacheado
 adropincalm.com
 . Isso garante disponibilidade offline e também rapidez no uso diário.
-Para implementar o SW no Next.js, existem duas abordagens: usar um plugin pronto como next-pwa, que simplifica a geração do service worker e manifest, ou criar manualmente o arquivo service-worker.js e registrá-lo. Como MVP, utilizar o next-pwa é conveniente – ele automaticamente configura o caching das páginas e estáticos e permite personalização de rotas a serem cacheadas. Alternativamente, a implementação manual (como descrito por algumas fontes
+Para implementar o SW no Next.js, existem duas abordagens: usar um plugin pronto como next-pwa (recomendado) ou criar manualmente o arquivo `public/sw.js` e registrá-lo. Atualmente, o app possui um SW custom em `public/sw.js` e um `manifest.json` linkado no `_document`. Em dev o registro fica habilitado para testes offline; em produção, podemos manter o SW custom ou migrar para `next-pwa` para estratégias de cache mais avançadas.
 adropincalm.com
 adropincalm.com
 ) dá controle fino, mas requer mais trabalho. Em ambiente de desenvolvimento, o registro do SW deve ficar desativado para que o Fast Refresh do Next.js não fique preso num reload completo a cada salvamento; por isso, o app só registra o SW em produção e, nos ambientes locais, toda instância ativa é explicitamente removida antes de rodar o dashboard.
 Manifest PWA: Junto ao SW, forneceremos um manifest.json definindo nome do aplicativo, ícones (logo da hamburgueria em diferentes tamanhos), cores de tema (por exemplo, background_color #000000 e theme_color #000000 para combinar com a UI dark), e modo standalone. Isso permite que o app seja instalável no dispositivo (como um app mobile).
-Com esses componentes, o PDV Burguer se comportará como uma Progressive Web App, carregando mesmo sem internet e podendo ser "instalado" no desktop ou tablet para tela cheia.
+Com esses componentes, o Cortex PDV se comportará como uma Progressive Web App, carregando mesmo sem internet e podendo ser "instalado" no desktop ou tablet para tela cheia.
 Armazenamento de Dados Offline – IndexedDB
 Para funcionamento offline completo, os dados dinâmicos (pedidos, produtos, etc.) precisam ser armazenados localmente no navegador. Vamos usar o IndexedDB, um banco de dados NoSQL interno do browser, para persistir esses dados estruturados. Diferente do localStorage, o IndexedDB é assíncrono e suporta grandes volumes de informação e consultas por índices, sendo ideal para aplicações offline complexas
 blog.pixelfreestudio.com
 blog.pixelfreestudio.com
-. No contexto do PDV Burguer, planejamos criar um banco IndexedDB com, por exemplo, os seguintes object stores (equivalentes a tabelas):
+. No contexto do Cortex PDV, planejamos criar um banco IndexedDB com, por exemplo, os seguintes object stores (equivalentes a tabelas):
 pedidos – armazenará os pedidos locais. Cada registro pode conter: id (chave), itens (lista), total, status, data/hora, informações de pagamento, entrega e um flag indicativo se está sincronizado com o servidor ou ainda pendente.
 produtos – armazenará o catálogo de produtos (id, nome, categoria, preço, disponível/indisponível, etc.), permitindo consulta mesmo offline para montar pedidos.
 caixa – opcionalmente, registros de operações de caixa (abertura, fechamento, sangrias) para consulta offline.
@@ -228,7 +232,7 @@ A separação é clara: o dispositivo do usuário tem o front-end code (HTML, CS
 learn.microsoft.com
 , enquanto o servidor mantém a lógica de banco e fornece endpoints. Esse desenho aproveita o melhor de PWAs – a capacidade de rodar app logic no cliente – e a confiabilidade de um servidor central para consolidar dados e permitir acompanhamento externo (ex: link do cliente pega do servidor).
 Estrutura de Pastas do Projeto
-A seguir, uma sugestão de estrutura de diretórios/arquivos para organizar o código do PDV Burguer (Next.js):
+A seguir, uma sugestão de estrutura de diretórios/arquivos para organizar o código do Cortex PDV (Next.js):
 pdv-burguer/
 ├── package.json
 ├── next.config.js              # Configurações do Next (incluindo manifest PWA se usar plugin)
@@ -301,7 +305,7 @@ devstarterpacks.com
 Garantir usabilidade: o atendente deve ser notificado do status de sincronização de alguma forma sutil. Por exemplo, um ícone de nuvem/offline no header pode indicar “offline mode” e quando reconectar, indicar “syncing...” e depois “online” verde. Assim o usuário sabe se os dados já foram enviados.
 Por fim, o uso de Next.js + MongoDB no backend permite escalar funcionalidades de API facilmente. Podemos escrever testes com ferramentas como Postman para verificar os endpoints (como sugerido por tutoriais
 dev.to
-), e monitorar logs de sincronização. Com essa arquitetura e funcionalidades implementadas, o MVP do PDV Burguer fornecerá uma base sólida: uma aplicação web moderna, responsiva, instalável (PWA), resiliente a falhas de conexão e centrada na eficiência das operações de venda em restaurantes. Cada escolha tecnológica – React com UI minimalista, Framer Motion para UX, IndexedDB + Service Worker para offline, Next.js API com MongoDB para backend – colabora para uma experiência robusta tanto para os funcionários quanto para os clientes que acompanham seus pedidos. Em releases futuros, poderíamos expandir com features como autenticação de funcionários, integrações com impressoras de recibo, ou pedidos online em tempo real, mas o MVP conforme descrito cobre os requisitos fundamentais para digitalizar o PDV de uma hamburgueria com sucesso. Referências Utilizadas: Algumas das estratégias de implementação, especialmente para funcionamento offline e PWA, foram baseadas em práticas recomendadas da comunidade web, incluindo o uso de IndexedDB para armazenamento local e sincronização posterior
+), e monitorar logs de sincronização. Com essa arquitetura e funcionalidades implementadas, o MVP do Cortex PDV fornecerá uma base sólida: uma aplicação web moderna, responsiva, instalável (PWA), resiliente a falhas de conexão e centrada na eficiência das operações de venda em restaurantes. Cada escolha tecnológica – React com UI minimalista, Framer Motion para UX, IndexedDB + Service Worker para offline, Next.js API com MongoDB para backend – colabora para uma experiência robusta tanto para os funcionários quanto para os clientes que acompanham seus pedidos. Em releases futuros, poderíamos expandir com features como autenticação de funcionários, integrações com impressoras de recibo, ou pedidos online em tempo real, mas o MVP conforme descrito cobre os requisitos fundamentais para digitalizar o PDV de uma hamburgueria com sucesso. Referências Utilizadas: Algumas das estratégias de implementação, especialmente para funcionamento offline e PWA, foram baseadas em práticas recomendadas da comunidade web, incluindo o uso de IndexedDB para armazenamento local e sincronização posterior
 blog.pixelfreestudio.com
 , o conceito de offline-first (estado offline como padrão)
 devstarterpacks.com
@@ -311,7 +315,7 @@ react-icons.github.io
 dev.to
 . A arquitetura cliente/servidor com Next.js e MongoDB segue guias modernos de desenvolvimento fullstack, simplificando a criação de APIs RESTful dentro do próprio app
 dev.to
-. Essas referências e padrões garantem que o PDV Burguer MVP seja desenvolvido com fundamentos sólidos e atualizados.
+. Essas referências e padrões garantem que o Cortex PDV MVP seja desenvolvido com fundamentos sólidos e atualizados.
 Melhorias de UX do painel
 - Scrollbar por coluna com cor temática (ex.: preparo laranja, pronto amarelo, rota azul, completo verde), mantendo contraste no tema escuro.
 - Botão de “esconder coluna” no cabeçalho; surge um painel flutuante à esquerda com botões para restaurar colunas ocultas.
@@ -346,3 +350,47 @@ Atualizações recentes (cards, colunas e página pública)
 - Botão “Pedido Link” no card abre a página pública `/pedido/[id]` em nova aba (não expõe o code); página exige code de 4 dígitos. O code aparece apenas no Modal de Detalhes para a equipe, com botão de copiar (assim como o link público).
 - Página pública do pedido (ticket dark/premium): timeline animada, ícone/etiqueta por etapa, textos por status e verificação de code; se cancelado/inexistente, exibe mensagem adequada. Tempos relativos calculados a partir de um relógio no client (sem usar Date.now() no render).
 - Modal de detalhes estilizado por status, com timeline do fluxo (Aguardo → Preparo → Pronto → Rota → Completo), ícones e animação suave.
+Usuários (Access ID + PIN)
+Modelo `users` no MongoDB com os campos:
+- `access` (string, 3 dígitos): identificador de acesso do usuário.
+- `pin` (string, 4 dígitos): senha numérica.
+- `type` (number 0..10): 10 = admin master; 0 = funcionário; 1..9 reservados para tipos configuráveis.
+- `status` (number): 0 = novo, 1 = ativo, 2 = suspenso/banido.
+- `nome` (string), `genero` ('M'|'F'|'O'), `icone` (string), `createdAt`, `updatedAt`.
+
+Inicialização: ao acessar `/`, a rota `GET /api/users/ensure-admin` garante um admin padrão (access `000`, pin `1234`, type `10`, status `1`) se a coleção estiver vazia.
+
+Checagem: a rota `GET /api/users/check?access=000` retorna `type` e `status` do usuário para validações por página (sem depender exclusivamente da sessão). Esse fluxo permite bloquear/alterar permissões sem exigir relogin imediato.
+
+Logs de Auditoria (POS)
+- Coleção `logs` para registrar ações de caixa/PDV e administrativas.
+- Campos principais:
+  - `ts` (ISO string): data/hora do evento.
+  - `access` (string): Access ID do usuário (3 dígitos).
+  - `action` (number): código da ação. Exemplos sugeridos:
+    - 10 = login; 11 = logout
+    - 20 = novo pedido; 21 = atualizar pedido (status); 22 = cancelar pedido; 23 = concluir pedido
+    - 30 = pagamento recebido; 31 = troco; 32 = estorno
+    - 40 = abertura de caixa; 41 = suprimento; 42 = sangria; 43 = fechamento de caixa
+    - 50 = CRUD produto (criar/atualizar/excluir)
+  - `value` (number): valor principal (ex.: total pago), quando aplicável.
+  - `value2` (number): valor secundário (ex.: valor anterior em troca/ajuste).
+  - `desc` (string): descritivo breve.
+  - `ref` (obj): referências opcionais (`pedidoId`, `produtoId`, `caixaId`, etc.).
+  - `meta` (obj): metadados adicionais livres.
+  - `ip`, `ua`: IP e user-agent de origem.
+
+API Logs
+- `GET /api/logs?access=000&action=20&limit=50` – lista logs por filtros opcionais.
+- `POST /api/logs` – cria log. Body: `{ access, action, value?, value2?, desc?, ref?, meta? }`.
+
+Uso sugerido
+- Ao criar/atualizar/cancelar pedidos e ações de caixa, registrar um log com `access`, `action` e valores relevantes.
+- Índices recomendados: `{ ts: -1 }`, `{ action: 1, ts: -1 }`, `{ access: 1, ts: -1 }` (criação futura via migration/script).
+
+Padrão de prefixos para `action`
+- 1xx: Sessão (100 login, 101 logout)
+- 2xx: Pedido (200 novo, 201 atualizar status, 202 cancelar, 203 concluir)
+- 3xx: Pagamento (300 recebido, 301 troco, 302 estorno)
+- 4xx: Caixa (400 abrir, 401 suprimento, 402 sangria, 403 fechar)
+- 5xx: Produto (500 criar, 501 atualizar, 502 remover)

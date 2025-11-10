@@ -2,9 +2,11 @@ import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { signIn, useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaLock, FaShieldAlt, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import { FaLock, FaShieldAlt, FaCheckCircle, FaTimesCircle, FaIdBadge, FaKey } from "react-icons/fa";
+import { APP_NAME } from "@/config/app";
 
 export default function Home() {
+  const [access, setAccess] = useState(["", "", ""]);
   const [pin, setPin] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -13,11 +15,13 @@ export default function Home() {
   const [shake, setShake] = useState(false);
   const router = useRouter();
   const { status } = useSession();
-  const inputsRef = useRef<Array<HTMLInputElement | null>>([null, null, null, null]);
+  const inputsRef = useRef<Array<HTMLInputElement | null>>([null, null, null, null, null, null, null]);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Redireciona quando autenticado
   useEffect(() => {
+    // Garante admin padrão se não existir
+    fetch('/api/users/ensure-admin').catch(()=>{});
     if (status === "authenticated" && router.pathname !== "/dashboard") {
       router.replace("/dashboard");
     }
@@ -25,10 +29,30 @@ export default function Home() {
 
   // Foca no primeiro input ao carregar
   useEffect(() => {
-    if (!blocked) {
-      inputsRef.current[0]?.focus();
-    }
+    if (!blocked) inputsRef.current[0]?.focus();
   }, [blocked]);
+
+  const handleAccessChange = (idx: number, value: string) => {
+    if (blocked) return;
+    if (!/^[0-9]?$/.test(value)) return;
+    const next = [...access];
+    next[idx] = value;
+    setAccess(next);
+    setError("");
+    if (value && idx < 2) inputsRef.current[idx + 1]?.focus();
+    if (!value && idx > 0) inputsRef.current[idx - 1]?.focus();
+  };
+
+  const handleAccessPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0,3);
+    const next = [...access];
+    for (let i=0; i<pasted.length; i++) next[i] = pasted[i];
+    setAccess(next);
+    const nextEmpty = next.findIndex(d => d === "");
+    if (nextEmpty !== -1) inputsRef.current[nextEmpty]?.focus();
+    else inputsRef.current[3]?.focus();
+  };
 
   const handleChange = (idx: number, value: string) => {
     if (blocked) return;
@@ -41,12 +65,12 @@ export default function Home() {
     
     // Avança para o próximo input
     if (value && idx < 3) {
-      inputsRef.current[idx + 1]?.focus();
+      inputsRef.current[3 + idx + 1]?.focus();
     }
     
     // Volta para o anterior se apagar
     if (!value && idx > 0) {
-      inputsRef.current[idx - 1]?.focus();
+      inputsRef.current[3 + idx - 1]?.focus();
     }
   };
 
@@ -58,11 +82,11 @@ export default function Home() {
     
     // Backspace no input vazio volta para o anterior
     if (e.key === "Backspace" && !pin[idx] && idx > 0) {
-      inputsRef.current[idx - 1]?.focus();
+      inputsRef.current[3 + idx - 1]?.focus();
     }
     
     // Enter submete o formulário
-    if (e.key === "Enter" && pin.every(d => d !== "")) {
+    if (e.key === "Enter" && access.every(d=>d!=="") && pin.every(d => d !== "")) {
       formRef.current?.requestSubmit();
     }
   };
@@ -81,9 +105,9 @@ export default function Home() {
     // Foca no último input preenchido ou no próximo vazio
     const nextEmptyIndex = newPin.findIndex(d => d === "");
     if (nextEmptyIndex !== -1) {
-      inputsRef.current[nextEmptyIndex]?.focus();
+      inputsRef.current[3 + nextEmptyIndex]?.focus();
     } else {
-      inputsRef.current[3]?.focus();
+      inputsRef.current[6]?.focus();
     }
   };
 
@@ -123,8 +147,8 @@ export default function Home() {
     e.preventDefault();
     if (blocked) return;
     
-    if (pin.some((d) => d === "")) {
-      setError("Preencha todos os dígitos");
+    if (access.some(d=> d==="") || pin.some((d) => d === "")) {
+      setError("Preencha Access ID e PIN");
       setShake(true);
       setTimeout(() => setShake(false), 500);
       playSound('error');
@@ -133,9 +157,10 @@ export default function Home() {
     
     setError("");
     const pinStr = pin.join("");
+    const accessStr = access.join("");
     
     try {
-      const res = await signIn("credentials", { pin: pinStr, redirect: false });
+      const res = await signIn("credentials", { access: accessStr, pin: pinStr, redirect: false });
       
       if (res?.error) {
         // PIN inválido
@@ -155,6 +180,7 @@ export default function Home() {
             setBlocked(false);
             setError("");
             setPin(["", "", "", ""]);
+            setAccess(["","",""]);
             inputsRef.current[0]?.focus();
             clearInterval(interval);
           }
@@ -175,33 +201,6 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen items-center justify-center app-gradient-bg relative overflow-hidden">
-      {/* Animação de fundo */}
-      <div className="absolute inset-0 overflow-hidden">
-        <motion.div
-          className="absolute -top-1/2 -left-1/2 w-full h-full brand-gradient/20 rounded-full blur-3xl"
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-        <motion.div
-          className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-linear-to-tl from-yellow-500/5 to-transparent rounded-full blur-3xl"
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [90, 0, 90],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -254,17 +253,7 @@ export default function Home() {
                   )}
                 </AnimatePresence>
               </div>
-              <motion.div
-                className="absolute -inset-2 brand-btn rounded-2xl blur-xl opacity-50"
-                animate={{
-                  opacity: [0.3, 0.6, 0.3],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
+            {/* glow removido para reduzir custo */}
             </div>
           </motion.div>
 
@@ -275,7 +264,7 @@ export default function Home() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
           >
-            PDV Burguer
+            {APP_NAME}
           </motion.h1>
 
           <motion.div
@@ -290,8 +279,45 @@ export default function Home() {
             </p>
           </motion.div>
 
-          {/* Inputs PIN */}
-          <div className="flex gap-3 mb-6">
+          {/* Access ID */}
+          <div className="w-full mb-3">
+            <div className="flex items-center gap-2 mb-2 text-zinc-300">
+              <FaIdBadge className="text-zinc-400" />
+              <span className="font-semibold">Access ID</span>
+              <span className="text-xs text-zinc-500">(3 dígitos)</span>
+            </div>
+            <div className="flex gap-3 mx-auto max-w-max">
+            {access.map((d, idx) => (
+              <motion.div key={idx} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + idx * 0.1 }}>
+                <input
+                  ref={(el) => { inputsRef.current[idx] = el; }}
+                  type="password"
+                  maxLength={1}
+                  inputMode="numeric"
+                  disabled={blocked || success}
+                  aria-label={`Dígito ${idx+1} do Access ID`}
+                  onPaste={idx===0 ? handleAccessPaste : undefined}
+                  value={d}
+                  onChange={(e) => handleAccessChange(idx, e.target.value)}
+                  className={`w-12 h-12 text-2xl text-center rounded-xl border-2 bg-zinc-800/50 text-white outline-none transition-all font-mono backdrop-blur
+                    ${blocked || success ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-800/70'}
+                    ${d ? 'border-blue-500 bg-zinc-800/70' : 'border-zinc-700'}
+                    focus:border-blue-500 focus:bg-zinc-800 focus:scale-105 focus:shadow-lg focus:shadow-blue-500/20
+                  `}
+                />
+              </motion.div>
+            ))}
+            </div>
+          </div>
+
+          {/* PIN */}
+          <div className="w-full mb-6">
+            <div className="flex items-center gap-2 mb-2 text-zinc-300">
+              <FaKey className="text-zinc-400" />
+              <span className="font-semibold">PIN</span>
+              <span className="text-xs text-zinc-500">(4 dígitos)</span>
+            </div>
+            <div className="flex gap-3">
             {pin.map((d, idx) => (
               <motion.div
                 key={idx}
@@ -300,11 +326,12 @@ export default function Home() {
                 transition={{ delay: 0.4 + idx * 0.1 }}
               >
                 <input
-                  ref={(el) => { inputsRef.current[idx] = el; }}
+                  ref={(el) => { inputsRef.current[3 + idx] = el; }}
                   type="password"
                   maxLength={1}
                   inputMode="numeric"
                   disabled={blocked || success}
+                  aria-label={`Dígito ${idx+1} do PIN`}
                   value={d}
                   onChange={(e) => handleChange(idx, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(idx, e)}
@@ -318,6 +345,7 @@ export default function Home() {
                 />
               </motion.div>
             ))}
+            </div>
           </div>
 
           {/* Mensagens de erro/sucesso */}
@@ -369,18 +397,7 @@ export default function Home() {
             <span className="relative z-10 text-white">
               {success ? 'Entrando...' : blocked ? `Bloqueado (${timer}s)` : 'Entrar no Sistema'}
             </span>
-            {!blocked && !success && (
-              <motion.div
-                className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent"
-                initial={{ x: '-100%' }}
-                animate={{ x: '200%' }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "linear"
-                }}
-              />
-            )}
+            {/* shimmer removido */}
           </motion.button>
 
           {/* Dica */}
@@ -390,7 +407,7 @@ export default function Home() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8 }}
           >
-            Digite seu PIN de 4 dígitos para acessar o sistema
+            Informe seu Access ID (3 dígitos) e PIN (4 dígitos)
           </motion.p>
         </motion.form>
       </motion.div>

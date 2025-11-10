@@ -1,26 +1,97 @@
 {
   "pedidos": [
     {
-      "id": "A001",
+      "id": "A1001",
       "status": "EM_AGUARDO",
       "itens": [
         { "nome": "X-Burger", "quantidade": 1, "preco": 18.9 },
-        { "nome": "Coca-Cola 350ml", "quantidade": 1, "preco": 6 }
+        { "nome": "Batata Média", "quantidade": 1, "preco": 9.5 }
       ]
     },
     {
-      "id": "B002",
+      "id": "B2033",
       "status": "EM_PREPARO",
       "itens": [
-        { "nome": "X-Salada", "quantidade": 1, "preco": 17.5 }
+        { "nome": "Cheeseburger", "quantidade": 2, "preco": 16.5 },
+        { "nome": "Refrigerante Lata", "quantidade": 2, "preco": 6.0 }
       ]
     },
     {
-      "id": "C003",
+      "id": "C3302",
       "status": "PRONTO",
       "itens": [
-        { "nome": "X-Bacon", "quantidade": 2, "preco": 21.0 }
+        { "nome": "Combo Burger + Batata + Refri", "quantidade": 1, "preco": 34.9 }
+      ]
+    },
+    {
+      "id": "D4871",
+      "status": "EM_ROTA",
+      "itens": [
+        { "nome": "X-Bacon", "quantidade": 1, "preco": 22.0 },
+        { "nome": "Coca 600ml", "quantidade": 1, "preco": 9.0 }
+      ]
+    },
+    {
+      "id": "E5120",
+      "status": "COMPLETO",
+      "itens": [
+        { "nome": "Chicken Burger", "quantidade": 1, "preco": 19.9 },
+        { "nome": "Onion Rings", "quantidade": 1, "preco": 12.0 }
+      ]
+    },
+    {
+      "id": "F6507",
+      "status": "EM_AGUARDO",
+      "itens": [
+        { "nome": "Pizza Fatia Margherita", "quantidade": 2, "preco": 9.9 },
+        { "nome": "Suco de Laranja", "quantidade": 1, "preco": 7.5 }
+      ]
+    },
+    {
+      "id": "G7129",
+      "status": "EM_PREPARO",
+      "itens": [
+        { "nome": "Hot Dog Especial", "quantidade": 1, "preco": 14.9 },
+        { "nome": "Milkshake Chocolate", "quantidade": 1, "preco": 15.0 }
+      ]
+    },
+    {
+      "id": "H8344",
+      "status": "PRONTO",
+      "itens": [
+        { "nome": "Wrap Veg", "quantidade": 1, "preco": 17.0 },
+        { "nome": "Água", "quantidade": 1, "preco": 4.0 }
+      ]
+    },
+    {
+      "id": "I9055",
+      "status": "EM_ROTA",
+      "itens": [
+        { "nome": "X-Salada", "quantidade": 2, "preco": 17.9 }
+      ]
+    },
+    {
+      "id": "J1099",
+      "status": "COMPLETO",
+      "itens": [
+        { "nome": "Sorvete", "quantidade": 3, "preco": 6.5 }
+      ]
+    },
+    {
+      "id": "K2201",
+      "status": "CANCELADO",
+      "itens": [
+        { "nome": "Burger Duplo", "quantidade": 1, "preco": 24.9 }
+      ]
+    },
+    {
+      "id": "L3308",
+      "status": "EM_AGUARDO",
+      "itens": [
+        { "nome": "Café Expresso", "quantidade": 2, "preco": 4.0 },
+        "Guardanapos"
       ]
     }
   ]
 }
+
