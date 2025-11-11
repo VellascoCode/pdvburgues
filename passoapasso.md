@@ -278,3 +278,21 @@ Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do
 - [x] Sons em Admin Config/Produtos: ações assíncronas agora disparam `success`/`error` conforme retorno da API; abrir modais toca `open`, fechar toca `close`. PIN modal toca `open` ao montar, `success` ao confirmar e `close` ao cancelar/overlay.
 - [x] Admin Dashboard: adicionados cards de métricas simuladas com badge “SIMULADO” e seção de gráficos (6 blocos) desabilitados por plano, com overlay “Atualize seu plano para usar gráficos”. Grid responsivo 1/2/3 colunas.
  - [x] Admin Dashboard (expansão): +12 cards simulados (clientes, SLA, combos, cupons, etc.) e +3 gráficos simulados (conversão por canal, tempo de atendimento, taxa de cancelamento). Seção “Conta da Empresa” simulada com plano, limites (barras), e faturas recentes.
+
+## Admin – Usuários
+- [x] Página `admin/usuarios`: lista usuários com paginação; card do usuário logado no topo com avatar, access, tipo e status. Busca removida (conforme pedido).
+- [x] Modal “Criar Usuário”: campos Access ID (3 dígitos), Nome, Nick, Gênero, Tipo, Status, Função, Espaço de trabalho e PIN inicial (4 dígitos). Confirmação via PIN do admin.
+- [x] API `GET/POST /api/users`: listagem paginada (filtros mantidos no backend) e criação de usuário (com validação e hash do PIN). Logs administrativos na criação (ação 300).
+- [x] Edição de usuário: modal `UserEditModal` com alteração de nome, nick, gênero, tipo, status, função, workspace, Access ID e redefinição de PIN (opcional). Confirmação via PIN do admin, logs 301/302.
+- [x] API `GET/PUT /api/users/[access]`: retorna usuário (GET) e permite atualizar (PUT) com validação de sessão admin e PIN; impede Access duplicado; registra logs (301 update geral, 302 reset de PIN, e detalhe de access alterado).
+- [x] Colunas do painel por usuário: campo `board.columns` no modelo `users` (5 padrões e customizáveis). Editor com arrastar‑e‑soltar no `UserEditModal` (presets Cozinha/Logística, adicionar/remover/reordenar, reset p/ padrão). Log 303 ao atualizar.
+- [x] Página `admin/colunas`: gerenciador dedicado das colunas do usuário atual (arrastar, visibilidade, presets, reset e salvar com PIN). Usa `PUT /api/users/[access]`.
+- [x] Users model: adicionada `allowedColumns: string[]` (ids) para colunas autorizadas; se ausente/vazia, assume padrão (5 colunas). API PUT de `/api/users/[access]` aceita atualizar esse array validando ids presentes no board.
+- [x] UI: em `admin/colunas`, painel de “Visão do modelo” permite marcar “ativo” por coluna (mapeia para `allowedColumns`). Em `UserEditModal`, adicionado resumo das colunas autorizadas (mostra Padrão quando vazio).
+- [x] Fallback claro de colunas: quando o usuário não tem `board.columns` salvo, o editor exibe imediatamente as 5 colunas padrão (em `UserEditModal` e `admin/colunas`), evitando estado vazio confuso.
+- [x] PIN Modal: ajustes para validação real (aguarda retorno booleano) na criação de usuário; exibe mensagens de erro ao PIN incorreto.
+
+ Próximos passos (Usuários)
+ - [ ] Filtros por tipo/status e ordenação por criação/nome (client-side; backend já suporta).
+ - [ ] Soft delete/desativação com badges e logs.
+ - [ ] Ajustar Dashboard para ler `user.board.columns` e compor as colunas dinamicamente (mantendo mapeamento para status padrão quando ausentes).

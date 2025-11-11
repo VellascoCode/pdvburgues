@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { FaChartBar, FaBoxOpen, FaCashRegister, FaListUl, FaUsers, FaCog, FaSignOutAlt, FaTachometerAlt } from 'react-icons/fa';
+import { FaChartBar, FaBoxOpen, FaCashRegister, FaListUl, FaUsers, FaCog, FaSignOutAlt, FaTachometerAlt, FaColumns } from 'react-icons/fa';
 import { useSession } from 'next-auth/react';
 import { signOut } from 'next-auth/react';
 import { playUiSound } from '@/utils/sound';
@@ -14,6 +14,7 @@ const defaultItems: Item[] = [
   { href: '/admin/caixa', key: 'caixa', label: 'Caixa', icon: FaCashRegister },
   { href: '/admin/logs', key: 'logs', label: 'Logs', icon: FaListUl },
   { href: '/admin/configuracoes', key: 'config', label: 'Configurações', icon: FaCog },
+  { href: '/admin/colunas', key: 'colunas', label: 'Colunas', icon: FaColumns },
   { href: '/admin/usuarios', key: 'usuarios', label: 'Usuários', icon: FaUsers },
 ];
 

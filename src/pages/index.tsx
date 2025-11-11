@@ -14,7 +14,7 @@ export default function Home() {
   const [timer, setTimer] = useState(0);
   const [shake, setShake] = useState(false);
   const router = useRouter();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const inputsRef = useRef<Array<HTMLInputElement | null>>([null, null, null, null, null, null, null]);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -22,10 +22,13 @@ export default function Home() {
   useEffect(() => {
     // Garante admin padrão se não existir
     fetch('/api/users/ensure-admin').catch(()=>{});
-    if (status === "authenticated" && router.pathname !== "/dashboard") {
-      router.replace("/dashboard");
+    if (status === "authenticated") {
+      const s = session as unknown as { user?: { status?: number } } | null;
+      const st = s?.user?.status ?? 1;
+      if (st === 0) router.replace('/espera');
+      else if (st === 1) router.replace('/dashboard');
     }
-  }, [status, router]);
+  }, [status, session, router]);
 
   // Foca no primeiro input ao carregar
   useEffect(() => {
@@ -190,7 +193,7 @@ export default function Home() {
         setSuccess(true);
         playSound('success');
         setTimeout(() => {
-          router.replace("/dashboard");
+          router.replace('/dashboard');
         }, 800);
       }
     } catch {

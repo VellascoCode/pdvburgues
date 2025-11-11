@@ -30,8 +30,8 @@ export const authOptions: NextAuthOptions = {
         if (!user.pinHash && user.pin === pin) {
           try { await col.updateOne({ access }, { $set: { pinHash: hashPin(pin) }, $unset: { pin: '' } }); } catch {}
         }
-        // Apenas usuários ativos
-        if (user.status !== 1) return null;
+        // Bloqueia apenas usuários suspensos
+        if (user.status === 2) return null;
         try { await writeLog({ access, action: 100, desc: 'login' }); } catch {}
         return { id: user.access, name: user.nome || 'Usuário', access: user.access, type: user.type, status: user.status };
       },

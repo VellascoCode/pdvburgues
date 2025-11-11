@@ -8,7 +8,7 @@ type User = {
   type: number; // 0..10 (10 admin master)
   status: number; // 0 novo, 1 ativo, 2 suspenso/banido
   nome: string;
-  genero?: 'M'|'F'|'O';
+  genero?: 'M'|'F';
   icone?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       type: 10,
       status: 1,
       nome: 'Admin',
-      genero: 'O',
+      genero: 'M',
       icone: 'shield',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
