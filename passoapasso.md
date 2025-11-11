@@ -39,7 +39,39 @@ Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do
 - [x] Conectar backend ao MongoDB (MONGODB_URI)
 - [x] Instalar dependência do driver MongoDB localmente: `npm i mongodb`
 - [x] Proteger rotas administrativas (login por PIN, NextAuth)
-- [ ] Implementar endpoints RESTful de produtos e caixa (pedidos ok)
+- [x] Implementar endpoints RESTful de produtos (GET/POST `/api/produtos`) com validação de sessão admin e PIN; logs automáticos de criação (action 500).
+ - [x] API Logs: `GET/POST /api/logs` usando helpers em `src/lib/logs.ts`.
+ - [x] `GET /api/produtos` com paginação e filtros (`page`, `pageSize`, `q`, `categoria`).
+- [x] Categorias: coleção `categories` com seed automático junto ao ensure-admin (7 básicas com ícone/cor/bg). API `GET /api/categorias`.
+- [x] Config: `GET/PUT /api/config` com opções appName, themeDefault, sounds, printing.enabled e PIN opcional no PUT.
+- [x] Métricas: `GET /api/products/stats` com contadores agregados (categorias/produtos/estoque/promos/combos).
+
+## Admin – Produtos e Configurações
+- [x] Cards de métricas (Produtos/Categorias) consumindo `/api/products/stats` com ícones, cores por tema e hover com som.
+ - [x] Stats de Config unificados: página agora consome apenas `/api/products/stats` (uma chamada) para todos os contadores.
+ - [x] Cores dos cards do Admin (Produtos/Config) alinhadas ao sistema do dashboard por tema: mapeamento por tema (dark, light, code) sem inventar novas paletas.
+ - [x] Overlays dos modais trocados para cor sólida (bg-black) para evitar artefatos e melhorar legibilidade.
+ - [x] Config/Categorias: toolbar com título+ícone à esquerda e busca+Adicionar à direita; remoção de métricas indevidas da página de Produtos.
+- [x] Lista de produtos: alternar entre cards/tabela; filtro de categorias ativas/inativas; em modo inativas desabilita modal e destaca borda/badge vermelha.
+- [x] Badges PROMO/COMBO/INATIVO como labels absolutas (top-right) no card; container com `relative` e sem duplicação de flags.
+- [x] Modal de criação de produto: select de categoria custom (ícone+nome) listando apenas categorias ativas; microdescrições.
+- [x] Configurações do sistema: UI para appName, tema, sons e impressão; salvar direto ou com PIN via modal.
+- [x] Config (Admin): simplificado – remover tema padrão/impressão; agora “Nome da Loja”, Sons, Funcionamento (24h, horários, dias), Tipo (físico/delivery/multi/serviços) e Classificação. PIN sempre obrigatório.
+- [x] Categorias (Config): cards Ativas/Desativadas, paginação e busca por API; badge com `prodCount`; ações Ativar/Desativar/Remover (soft delete) e Editar (label/ícone/cor/bg) com PIN.
+
+## Autenticação e Logs
+- [x] Login registra log action 100 (authorize NextAuth).
+- [x] Logout registra log action 101 (NavTop e AdminSidebar).
+
+## UI polimento (Produtos/Admin)
+- [x] Cards de métricas (Produtos/Config): altura reduzida, ícones com fundo suave por tema, hover suave com leve elevação.
+- [x] Bordas/ícones coloridos por paleta (purple/emerald/amber/sky/indigo/rose/pink/zinc) nos cards; respeita temas.
+- [x] Cards de produto: área do ícone menor (h-20, ícone 40px), hover com leve elevação, badges absolutas no topo.
+- [x] Toggles animados (role="switch") reutilizáveis em `src/components/ui/Toggle.tsx` (usados em Sons e 24h na Config).
+- [x] Config – resumo compacto em duas linhas com badges (nome, horário, dias, tipo, classificação, sons) e botão Editar que abre modal dedicado.
+- [x] Busca de categorias no Admin Config: desabilitado autofill/auto-complete (type="search", autocomplete=off, inputMode=search, name/id próprios) para impedir preenchimento automático de e‑mail.
+- [x] Remoção temporária do campo de busca em Config/Categorias e dos parâmetros de query na API client (refreshLists) para eliminar interferência de autofill; voltaremos quando houver solução 100% cross‑browser.
+
 - [ ] Validar dados e garantir unicidade de IDs
 - [x] Users: modelo básico e rotas `GET /api/users/ensure-admin` (injeta admin padrão 000/1234 se vazio) e `GET /api/users/check?access=000` (checar type/status).
  - [x] Guards SSR: `dashboard` e `admin` usam getServerSideProps para checar `users` (type/status) a cada request.
@@ -93,6 +125,7 @@ Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do
 - [x] doc.md atualizado: o app registra SW quando disponível; estratégia final será via next-pwa ou SW custom (dev habilitado para teste offline).
 - [x] Coluna “Completo” sem alerta de atraso; scrollbars coloridos por coluna; esconder/mostrar colunas via painel flutuante à esquerda.
 - [x] Sons discretos de hover/click e ícones por item (inferência + cadastro no admin).
+- [x] mvp2.md criado: plano de evolução para multi‑tenant e planos (free, starter, delivery, prime-delivery), migração e limites por módulo.
 
 ## UI/UX – Próximas melhorias
 - [x] Chips de filtro rápido por status e "Atrasados" (pulsante, com contagem)
@@ -145,11 +178,22 @@ Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do
 - [x] Produtos: grade de ícones agora exibe somente ícones de alimentos/bebidas (FA) e continua responsiva. Se quiser chegar exatamente a 48+, posso incluir também ícones de `react-icons/gi` (Game Icons) mantendo o critério "somente alimentos".
 - [x] Bugfix: estado do PIN (pinOpen/pin/pinErr) e import de FaInfoCircle adicionados em `admin/produtos` para evitar ReferenceError.
 - [x] Logs: tabela com listagem dos últimos logs via `GET /api/logs` (ts, access, action, valores e descrição).
+- [x] Admin Produtos: visualização Cards/Lista com animações suaves, paginação e filtros, sons discretos em hover/click.
+- [x] Removidos seeds (mock) da lista, agora carregando via API.
+- [x] Modal de visualização de produto que busca dados ao abrir e desmonta ao fechar (`src/components/ProductViewModal.tsx`).
+ - [x] Configurações: página `admin/configuracoes` com lista de categorias (ícone, cor, bg) da API.
+ - [x] ProdutoModal/Admin Produtos consomem categorias da API (fallback padrão).
 
 ---
 **Checklist de andamento:**
 
 ## Andamento recente
+- [x] Navs atualizadas: logout com logs (100/101), NavTop sem "Popular Banco" (rota seed removida), AdminNav simplificada (tema + bem‑vindo), logout movido para sidebar.
+- [x] Soft delete: `products` e `categories` com `deletado`; APIs ajustadas para filtrar/criar; categoria `DELETE` virou soft delete com regras.
+- [x] Produtos Admin: badges PROMO/COMBO/INATIVO absolutas (sem duplicação), bordas/cores por tema; toggle para categorias ativas/inativas com bloqueio de modal.
+- [x] Métricas otimizadas: API única `GET /api/products/stats` para cards do topo; cards redesenhados (cores/ícones/hover).
+- [x] Config do Sistema: `GET/PUT /api/config` e UI em Admin > Configurações (nome do app, tema default, sons).
+- [x] Dropdown de categorias no modal de produto com ícone + nome (apenas ativas).
 - [x] Removido Header antigo do `dashboard`; agora usamos apenas `NavTop`. Tipagem do `CatalogItem` ajustada com `stock?: number | 'inf'` para corrigir erro TS (2339). Ajuste menor no Tailwind (grid-cols) para evitar conflito de classes.
 - [x] Removida edição de troco no modal de detalhes; agora apenas exibe troco quando existir (dados consistentes com a página pública).
 - [x] Fundo com ícones (React Icons) adicionado diretamente nas telas do Dashboard e Pedido para garantir visibilidade sobre o tema escuro.
@@ -204,3 +248,33 @@ Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do
   - [x] Responsividade modal: grid 3 colunas no desktop (preview col-span-1; dados col-span-2). No mobile, tudo empilhado sem sobreposição; removido scroll horizontal (`overflow-x-hidden`), preview `w-full sm:w-64`, grade de ícones responsiva (`grid-cols-5 sm:grid-cols-6 md:grid-cols-8`) e switches com `shrink-0`.
   - [x] Ícones: removido o ícone de liquidificador (blender) da grade de seleção (não aparece mais na lista do modal).
   - [x] Seed: criado `src/mock-pedidos.json` consumido por `/api/pedidos/seed` para popular a base com pedidos em vários status (EM_AGUARDO, EM_PREPARO, PRONTO, EM_ROTA, COMPLETO, CANCELADO). Build agora compila sem erros.
+- [x] API Logs: `GET/POST /api/logs` usando helpers em `src/lib/logs.ts`.
+
+## Admin – Produtos
+- [x] Integração do Modal com backend: `ProdutoModal` retorna também o PIN e a página chama `POST /api/produtos`.
+- [x] Listagem real de produtos no admin usando `GET /api/produtos` (fallback de seed local mantido).
+- [x] AdminNav (mobile): header fixado com altura consistente (h-14), dropdown de tema reposicionado, e drawer mobile com scroll próprio + travamento do `body` ao abrir; sobreposição sólida.
+- [x] Admin páginas (todas): wrapper `<main>` atualizado para `w-full max-w-full overflow-x-hidden` e altura mínima sob header; remove scroll lateral e “empeno” no mobile de forma consistente.
+- [x] AdminSidebar (mobile): z-index elevado (z-[80]) para ficar acima do header; aside vira `flex flex-col` com ações "Painel" e "Sair" fixadas no rodapé via `mt-auto`. Overlay sólido.
+- [x] Tema movido para a Sidebar (desktop e mobile): seção "Tema" com três opções (DARK/LIGHT/CODE) e destaque do ativo; botão removido do topo (AdminNav).
+- [x] Admin/Produtos responsivo: container raiz com `w-full max-w-[100vw] overflow-x-hidden` para impedir corte lateral em telas estreitas.
+- [x] Admin/Produtos: seção de conteúdo com `min-w-0` para evitar overflow em layout flex; toolbar com `flex-wrap` e input com `w-full sm:w-56` para quebrar corretamente no mobile.
+- [x] Admin/Produtos: removida a busca (campo e parâmetros) conforme pedido; dropdown de categoria refeito (ícone + nome) usando dados de `/api/categorias`.
+- [x] Admin/Config: adicionado filtro de categorias com dropdown (ícone + nome) que atua sobre as listas Ativas e Desativadas (client-side), substituindo a busca removida.
+- [x] Sessão (NextAuth) otimizada: `SessionProvider` com `refetchOnWindowFocus={false}`, `refetchInterval={0}`, `refetchWhenOffline={false}` para evitar múltiplas chamadas `/api/auth/session` a cada navegação.
+- [x] Redirecionamento de sessão expirada: NextAuth `pages.signIn` definido para `/` e `onUnauthenticated()` em todas as páginas Admin redirecionando para `/` (evita `/api/auth/signin?...`).
+- [x] ProductViewModal: ampliado para exibir categoria, status de venda, combo e estoque; adicionados botões com PIN para: ativar/desativar promoção (preço por prompt), ativar/desativar vendas, mudar categoria (dropdown ícone+nome), mudar preço (prompt) e excluir (soft). Logs via API (PUT/DELETE /api/produtos/[id]).
+- [x] API `/api/produtos/[id]`: adicionados métodos PUT (atualizações controladas: preço, promo/promoAtiva, ativo, categoria, ícone/cor/bg) e DELETE (soft‑delete). PIN obrigatório, validação de sessão admin e logs.
+- [x] Config: dropdown de categorias do filtro exibe apenas categorias ativas (removidas as desativadas do seletor conforme regra de negócio).
+- [x] Sons: expandido util `playUiSound` com variantes (`open`, `close`, `success`, `error`, `toggle`) para diferenciar contextos; ajustes de volume/decay.
+- [x] ProductViewModal: animações de entrada/saída suavizadas (scale+opacity) e container com `overflow-visible` para menus; botões agora com rótulos claros (Promo, Vendas, Preço, Categoria, Excluir) e comportamentos protegidos por PIN.
+- [x] ProductViewModal: adicionada rolagem interna (`max-h-[70vh] overflow-y-auto`) para evitar conteúdo cortado em telas menores.
+- [x] Dropdowns (Produtos/Config): adicionada detecção de clique fora + ESC para fechar; z-index mantido alto para não cortar. Mantêm montagem/desmontagem pelo estado, evitando peso desnecessário.
+- [x] ProductViewModal: títulos e botões com ícones (promo/vendas/preço/categoria/excluir); dropdown de categoria fecha com clique‑fora/ESC; layout refinado; animação spring.
+- [x] Estados de modais resetados ao fechar (ProductViewModal): limpa dropdowns/prompts/flags no `useEffect` quando `open` fica `false`; modal montado/desmontado pelo pai (condicional) para evitar retenção de estado.
+- [x] ProdutoModal (criação): dropdown de categoria (ícone + nome) agora fecha por clique‑fora e tecla ESC; mantém apenas categorias ativas.
+- [x] Lint: removidos imports de ícones não utilizados em ProductViewModal.
+- [x] Sons globais respeitam Config: `utils/sound.ts` agora verifica `cfg:sounds` (localStorage) e expõe `setUiSoundEnabled`; `_app.tsx` sincroniza com `/api/config` ao iniciar e `ConfigEditModal` atualiza o estado local e global ao salvar. Variantes distintas por ação: `hover`, `click`, `open`, `close`, `success`, `error`, `toggle`.
+- [x] Sons em Admin Config/Produtos: ações assíncronas agora disparam `success`/`error` conforme retorno da API; abrir modais toca `open`, fechar toca `close`. PIN modal toca `open` ao montar, `success` ao confirmar e `close` ao cancelar/overlay.
+- [x] Admin Dashboard: adicionados cards de métricas simuladas com badge “SIMULADO” e seção de gráficos (6 blocos) desabilitados por plano, com overlay “Atualize seu plano para usar gráficos”. Grid responsivo 1/2/3 colunas.
+ - [x] Admin Dashboard (expansão): +12 cards simulados (clientes, SLA, combos, cupons, etc.) e +3 gráficos simulados (conversão por canal, tempo de atendimento, taxa de cancelamento). Seção “Conta da Empresa” simulada com plano, limites (barras), e faturas recentes.

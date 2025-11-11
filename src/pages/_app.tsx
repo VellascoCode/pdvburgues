@@ -3,6 +3,7 @@ import { SessionProvider } from "next-auth/react";
 import type { AppProps } from "next/app";
 import "@/styles/globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { setUiSoundEnabled } from "@/utils/sound";
 
 function OnlineStatusBanner() {
   // Evita hidratação instável: inicia como null no SSR e só exibe após montar
@@ -40,9 +41,18 @@ export default function App({ Component, pageProps }: AppProps) {
     if ('caches' in window) {
       caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).catch(()=>{});
     }
+    // Inicializa preferência de som a partir do localStorage/servidor
+    try {
+      const st = localStorage.getItem('cfg:sounds');
+      if (st !== null) setUiSoundEnabled(st !== '0');
+      // busca do servidor para sincronizar possível alteração externa
+      fetch('/api/config').then(r=> r.ok ? r.json() : null).then(cfg => {
+        if (cfg && typeof cfg.sounds === 'boolean') setUiSoundEnabled(!!cfg.sounds);
+      }).catch(()=>{});
+    } catch {}
   }, []);
   return (
-    <SessionProvider session={pageProps.session}>
+    <SessionProvider session={pageProps.session} refetchOnWindowFocus={false} refetchInterval={0} refetchWhenOffline={false}>
       <ThemeProvider>
         <OnlineStatusBanner />
         <div className="relative z-10">

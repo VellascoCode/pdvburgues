@@ -1,4 +1,5 @@
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/router';
 import type { GetServerSideProps } from 'next';
 import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
@@ -7,9 +8,15 @@ import { authOptions } from '../api/auth/[...nextauth]';
 import { getDb } from '@/lib/mongodb';
 import AdminNav from '@/components/AdminNav';
 import AdminSidebar from '@/components/AdminSidebar';
-import { FaPlus } from 'react-icons/fa';
+import { FaPlus, FaThLarge, FaList } from 'react-icons/fa';
 import { ICONS, IconKey } from '@/components/food-icons';
 import ProdutoModal, { NewProductData } from '@/components/ProdutoModal';
+import ProductViewModal from '@/components/ProductViewModal';
+import ProductsStats, { ProductsStatsData } from '@/components/admin/ProductsStats';
+import { FaBoxOpen, FaEye, FaEyeSlash } from 'react-icons/fa';
+import ProductsList, { ProductListItem } from '@/components/admin/ProductsList';
+//
+import { playUiSound } from '@/utils/sound';
 
 type Categoria = 'burger'|'bebida'|'pizza'|'hotdog'|'sobremesa'|'frango'|'veg';
 // IconKey agora vem do módulo compartilhado de ícones
@@ -28,105 +35,205 @@ type AdminProduct = {
   iconKey: IconKey;
   cor: string; // tailwind class p/ ícone
   bg: string;  // tailwind class p/ fundo
+  catInactive?: boolean;
 };
 
 // ICONS/FOOD_KEYS movidos para '@/components/food-icons'
 
-const INITIAL: AdminProduct[] = [
-  { id:'xb', nome:'X-Burger', categoria:'burger', preco:18.9, ativo:true, desc:'Pão, carne 120g, queijo e molho da casa.', stock:12, iconKey:'hamburger', cor:'text-orange-400', bg:'bg-orange-900/20' },
-  { id:'cafe', nome:'Café', categoria:'bebida', preco:4, ativo:true, desc:'Expresso curto, fresco e encorpado.', stock:'inf', iconKey:'coffee', cor:'text-yellow-300', bg:'bg-yellow-900/20' },
-  { id:'pizza', nome:'Pizza Fatia', categoria:'pizza', preco:9.9, ativo:true, desc:'Fatia marguerita assada na hora.', stock:20, iconKey:'pizza', cor:'text-pink-400', bg:'bg-pink-900/20' },
-];
+const INITIAL: AdminProduct[] = [];
 
 export default function AdminProdutos() {
-  const { status } = useSession({ required: true });
+  const router = useRouter();
+  const { status } = useSession({ required: true, onUnauthenticated() { router.replace('/'); } });
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [produtos, setProdutos] = React.useState<AdminProduct[]>(INITIAL);
+  const [view, setView] = React.useState<'cards'|'list'>('cards');
+  // Busca removida a pedido: sem campo/associação
+  const [categoria, setCategoria] = React.useState<''|Categoria>('');
+  const [page, setPage] = React.useState(1);
+  const pageSize = 24;
+  const [total, setTotal] = React.useState(0);
+  const [loading, setLoading] = React.useState(false);
+  const [viewId, setViewId] = React.useState<string|undefined>(undefined);
+  const [catOptions, setCatOptions] = React.useState<Array<{ key: Categoria; label: string; iconKey?: IconKey; active?: boolean }>>([]);
+  const [openCat, setOpenCat] = React.useState(false);
+  const catRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (!openCat) return;
+    const onClick = (e: MouseEvent) => {
+      if (!catRef.current) return;
+      if (!catRef.current.contains(e.target as Node)) setOpenCat(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenCat(false); };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onClick); document.removeEventListener('keydown', onKey); };
+  }, [openCat]);
+  type ApiProduct = Partial<AdminProduct> & { _id?: string; id?: string };
+  const [showInactiveCats, setShowInactiveCats] = React.useState(false);
+  const [stats, setStats] = React.useState<ProductsStatsData>({ catsTotal: 0, catsActive: 0, catsInactive: 0, prodTotal: 0, prodActiveCats: 0, prodInactiveCats: 0, prodActive: 0, prodInactive: 0, stockGt0: 0, stockInf: 0, stockZero: 0, promosActive: 0, combos: 0, uniques: 0 });
+
+  // Carregar categorias uma vez
+  React.useEffect(() => {
+    fetch('/api/categorias')
+      .then(r=> r.ok ? r.json() : null)
+      .then((resp) => {
+        const list = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.items) ? resp.items : []);
+        setCatOptions(list as Array<{ key: Categoria; label: string; iconKey?: IconKey; active?: boolean }>);
+      })
+      .catch(()=>{});
+  }, []);
+
+  // Stats gerais (API otimizada)
+  React.useEffect(() => {
+    fetch('/api/products/stats').then(r=>r.json()).then((s)=> setStats(s)).catch(()=>{});
+  }, []);
+
+  // Lista de produtos (com filtro por categorias ativas/inativas)
+  React.useEffect(() => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    // busca removida
+    if (categoria) params.set('categoria', categoria);
+    else params.set('cats', showInactiveCats ? 'inactive' : 'active');
+    setLoading(true);
+    fetch(`/api/produtos?${params.toString()}`)
+      .then(r => r.ok ? r.json() : { items: [], total: 0 })
+      .then((resp: { items: ApiProduct[]; total: number; page: number; pageSize: number }) => {
+        const items = resp.items || [];
+        const inactiveKeys = new Set((catOptions||[]).filter(c => c.active === false).map(c=> String(c.key)));
+        const map: AdminProduct[] = items.map((d) => ({
+          id: String(d._id || d.id),
+          nome: d.nome!,
+          categoria: d.categoria as Categoria,
+          preco: Number(d.preco),
+          promo: typeof d.promo === 'number' ? d.promo : undefined,
+          promoAtiva: Boolean(d.promoAtiva),
+          ativo: Boolean(d.ativo),
+          combo: Boolean(d.combo),
+          desc: d.desc || '',
+          stock: (typeof d.stock === 'number' || d.stock === 'inf') ? d.stock : 0,
+          iconKey: (d.iconKey as IconKey) ?? 'hamburger',
+          cor: d.cor || 'text-orange-400',
+          bg: d.bg || 'bg-orange-900/20',
+          catInactive: inactiveKeys.has(String(d.categoria)),
+        }));
+        setProdutos(map);
+        setTotal(resp.total || map.length);
+      })
+      .catch(() => { setProdutos([]); setTotal(0); })
+      .finally(() => setLoading(false));
+  }, [page, categoria, showInactiveCats, catOptions]);
   const [showModal, setShowModal] = React.useState(false);
 
   if (status !== 'authenticated') return null;
 
-  const total = produtos.length;
-  const ativos = produtos.filter(p=>p.ativo).length;
-  const combos = produtos.filter(p=>p.combo).length;
-  const semEstoque = produtos.filter(p=>p.stock !== 'inf' && Number(p.stock) <= 0).length;
+  const totalCount = total; // mantido se precisar em outro lugar
 
-  function addProduto(data: NewProductData) {
-    const novo: AdminProduct = {
-      id: Math.random().toString(36).slice(2,8),
-      nome: data.nome,
-      categoria: data.categoria,
-      preco: data.preco,
-      promo: data.promo,
-      promoAtiva: data.promoAtiva,
-      ativo: data.ativo,
-      combo: data.combo,
-      desc: data.desc,
-      stock: data.stock,
-      iconKey: data.iconKey,
-      cor: data.cor,
-      bg: data.bg,
-    };
-    setProdutos(prev => [novo, ...prev]);
+  async function addProduto(data: NewProductData, pin: string) {
+    try {
+      const res = await fetch('/api/produtos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data, pin }),
+      });
+      if (!res.ok) throw new Error('Falha ao salvar');
+      const saved = await res.json();
+      const novo: AdminProduct = {
+        id: saved._id || saved.id,
+        nome: saved.nome,
+        categoria: saved.categoria,
+        preco: saved.preco,
+        promo: saved.promo,
+        promoAtiva: saved.promoAtiva,
+        ativo: saved.ativo,
+        combo: saved.combo,
+        desc: saved.desc,
+        stock: saved.stock,
+        iconKey: saved.iconKey,
+        cor: saved.cor,
+        bg: saved.bg,
+      };
+      setProdutos(prev => [novo, ...prev]);
+    } catch {
+      // opcional: toast de erro
+    }
   }
 
   return (
-    <div className="min-h-screen app-gradient-bg">
+    <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden app-gradient-bg">
       <AdminNav onToggleSidebar={() => setSidebarOpen(v=>!v)} />
-      <main className="flex min-h-[calc(100vh-56px)]">
+      <main className="flex w-full max-w-full overflow-x-hidden min-h-[calc(100vh-56px)]">
         <AdminSidebar active="produtos" open={sidebarOpen} onClose={()=> setSidebarOpen(false)} />
-        <section className="flex-1 p-6">
-          {/* Cards topo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            <MetricCard label="Produtos" value={total} color="border-purple-500" />
-            <MetricCard label="Ativos" value={ativos} color="border-emerald-600" />
-            <MetricCard label="Combos" value={combos} color="border-amber-500" />
-            <MetricCard label="Sem estoque" value={semEstoque} color="border-red-600" />
-          </div>
+        <section className="flex-1 min-w-0 p-4 sm:p-6">
+          <ProductsStats stats={stats} />
 
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold theme-text">Produtos</h2>
-            <button className="px-3 py-2 rounded brand-btn text-white inline-flex items-center gap-2" onClick={()=> setShowModal(true)}>
-              <FaPlus /> Adicionar Produto
-            </button>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold theme-text flex items-center gap-2"><FaBoxOpen className="text-zinc-400" /> Produtos</h2>
+              <div className="text-xs text-zinc-500">Gerencie catálogo, estoque e promoções</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 ml-auto">
+              {/* Dropdown de categoria com ícone+nome */}
+              <div className="relative" ref={catRef}>
+                <button className="px-3 py-2 rounded-lg border theme-border bg-zinc-900 text-zinc-200 text-sm inline-flex items-center gap-2" onClick={()=> setOpenCat(v=>!v)}>
+                  {(() => {
+                    const cur = catOptions.find(c => c.key === categoria);
+                    if (!cur) return <span>Todas</span>;
+                    const I = cur.iconKey ? ICONS[cur.iconKey] : undefined;
+                    return (<>{I ? <I className="w-4 h-4" /> : null}<span>{cur.label}</span></>);
+                  })()}
+                </button>
+                {openCat && (
+                  <div className="absolute z-50 mt-1 w-56 max-h-64 overflow-auto rounded-lg border theme-border bg-zinc-900 shadow-xl p-1">
+                    <button className={`w-full text-left text-sm px-2 py-1.5 rounded-md border theme-border text-zinc-300 hover:bg-zinc-800 inline-flex items-center gap-2 ${categoria===''?'bg-zinc-800':''}`} onClick={()=>{ setCategoria(''); setPage(1); setOpenCat(false); }}>Todas</button>
+                    {(catOptions.length ? catOptions.filter(c=> c.active !== false) : []).map(opt => {
+                      const I = opt.iconKey ? ICONS[opt.iconKey] : undefined;
+                      return (
+                        <button key={opt.key} className={`w-full text-left text-sm px-2 py-1.5 rounded-md border theme-border text-zinc-300 hover:bg-zinc-800 inline-flex items-center gap-2 ${categoria===opt.key?'bg-zinc-800':''}`} onClick={()=>{ setCategoria(opt.key as Categoria); setPage(1); setOpenCat(false); }}>
+                          {I ? <I className="w-4 h-4" /> : null}
+                          <span>{opt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="inline-flex rounded-lg border theme-border overflow-hidden">
+                <button className={`px-3 py-2 text-sm ${view==='cards'?'bg-zinc-800 text-white':'text-zinc-300'}`} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setView('cards'); }} aria-label="Cards"><FaThLarge/></button>
+                <button className={`px-3 py-2 text-sm ${view==='list'?'bg-zinc-800 text-white':'text-zinc-300'}`} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setView('list'); }} aria-label="Lista"><FaList/></button>
+              </div>
+              <button className={`px-3 py-2 rounded border theme-border text-sm ${showInactiveCats ? 'text-amber-400' : 'text-zinc-300'}`} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setShowInactiveCats(v=>!v); setPage(1); }}>
+                {showInactiveCats ? <span className="inline-flex items-center gap-1"><FaEyeSlash /> Categorias inativas</span> : <span className="inline-flex items-center gap-1"><FaEye /> Categorias ativas</span>}
+              </button>
+              <button className="px-3 py-2 rounded brand-btn text-white inline-flex items-center gap-2" onMouseEnter={()=>playUiSound('hover')} onClick={()=> { playUiSound('click'); setShowModal(true); }}>
+                <FaPlus /> Adicionar
+              </button>
+            </div>
           </div>
 
           {/* Lista de itens */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {produtos.map(p => {
-              const Icon = ICONS[p.iconKey];
-              return (
-                <div key={p.id} className="rounded-xl border theme-border overflow-hidden">
-                  <div className={`h-24 flex items-center justify-center ${p.bg}`}>
-                    <Icon className={`${p.cor} w-12 h-12`} />
-                  </div>
-                  <div className="p-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="font-semibold theme-text truncate">{p.nome}</div>
-                      <span className="text-xs px-2 py-0.5 rounded-full border theme-border text-zinc-300">{p.categoria.toUpperCase()}</span>
-                    </div>
-                    <div className="text-xs text-zinc-400 line-clamp-2 mb-2">{p.desc}</div>
-                    <div className="flex items-center justify-between text-sm">
-                      <div>
-                        {p.promoAtiva && p.promo ? (
-                          <>
-                            <span className="text-rose-400 font-semibold mr-2">R$ {p.promo.toFixed(2)}</span>
-                            <span className="text-zinc-500 line-through text-xs">R$ {p.preco.toFixed(2)}</span>
-                          </>
-                        ) : (
-                          <span className="theme-text font-semibold">R$ {p.preco.toFixed(2)}</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-zinc-400">{p.stock==='inf' ? '∞' : `Estoque: ${p.stock}`}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <ProductsList
+            items={produtos as unknown as ProductListItem[]}
+            view={view}
+            loading={loading}
+            onOpen={(id) => setViewId(id)}
+            inactiveMode={!categoria && showInactiveCats}
+          />
+
+          {/* Paginação */}
+          <div className="flex items-center justify-between mt-4 text-sm text-zinc-400">
+            <div>Mostrando {(produtos.length ? ((page-1)*pageSize+1) : 0)}–{(page-1)*pageSize + produtos.length} de {totalCount}</div>
+            <div className="inline-flex rounded-lg border theme-border overflow-hidden">
+              <button className="px-3 py-2 disabled:opacity-50" disabled={page<=1} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setPage(p => Math.max(1, p-1)); }}>Anterior</button>
+              <button className="px-3 py-2 disabled:opacity-50" disabled={(page*pageSize)>=totalCount} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setPage(p => p+1); }}>Próxima</button>
+            </div>
           </div>
 
-          {/* Modal adicionar */}
+          {/* Modais */}
           <ProdutoModal open={showModal} onClose={()=> setShowModal(false)} onConfirm={addProduto} />
+          {viewId ? (
+            <ProductViewModal open id={viewId} onClose={()=> setViewId(undefined)} />
+          ) : null}
         </section>
       </main>
     </div>
@@ -147,15 +254,4 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   return { props: {} };
 };
 
-function MetricCard({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className={`backdrop-blur border ${color} rounded-xl p-4 theme-surface theme-border`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs text-zinc-500 mb-1">{label}</p>
-          <p className={`text-xl font-bold ${color.replace('border-', 'text-')}`}>{String(value)}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+// MetricCard movido para ProductsStats

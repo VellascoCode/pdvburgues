@@ -1,4 +1,4 @@
-Regras de Trabalho – Cortex PDV
+Regras de Trabalho – omnix pdo
 
 Objetivo: garantir consistência, qualidade e velocidade sem quebrar o build.
 
@@ -45,3 +45,50 @@ Objetivo: garantir consistência, qualidade e velocidade sem quebrar o build.
 11) Revisão final
 - Conferir que o tema troca todas as superfícies principais (cards, headers, inputs, modais, chips principais).
 - Conferir que BG aparece em todos os temas e não se sobrepõe ao conteúdo.
+
+12) Passoapasso (diretriz primária)
+- SEMPRE atualizar `passoapasso.md` após cada entrega concluída (mesmo se pequena). Se iniciar uma frente nova, registrar intenção/escopo; ao finalizar, registrar o que foi feito e próximos passos.
+
+13) Efeitos/estado e modais
+- Evitar `setState` síncrono dentro de `useEffect` que cause renderizações em cascata. Se necessário, condicionar e/ou usar estados derivados.
+- Modais devem ser montados/desmontados (mount/unmount) ao abrir/fechar; estados internos devem ser resetados ao fechar.
+- Dados dos modais DEVEM ser buscados na abertura (fetch-on-open) via API; ao fechar, limpar referências para não “pesar” a UI.
+
+14) Sons (governados por Config)
+- Respeitar `Config.sounds` (on/off) em todas as páginas/componentes usando `playUiSound`. Se desligado, nenhum som deve tocar.
+- Sons por contexto: `hover`, `click`, `open`, `close`, `success`, `error`, `toggle` (curtos e sutis).
+
+15) Temas e cores (Admin alinhado ao Dashboard do usuário)
+- Usar exclusivamente as classes dos temas e o mapeamento de cores já utilizado no Dashboard do usuário para bordas/ícones.
+- NÃO inventar paletas novas por página; reaproveitar `theme-surface`, `theme-border`, `theme-text` e as variações já definidas.
+
+16) Categorias/Produtos – regras de negócio
+- Soft delete obrigatório: `deletado: true` em exclusões; `active: false` em desativação.
+- Selects/listas de categorias DEVEM exibir apenas categorias ativas, a menos que o contexto explicitamente peça inativas.
+- Ao listar produtos de categorias inativas, desabilitar ações de abrir modal de item; aplicar borda/flags em vermelho.
+- Toda ação administrativa relevante deve gerar log.
+
+17) API e performance
+- Consolidar contagens/estatísticas em endpoints únicos (ex.: `GET /api/products/stats`). Evitar múltiplas chamadas encadeadas na UI.
+- Paginação/filtragem SEMPRE pelo backend; UI só compõe filtros e exibe resultado.
+- Reduzir chamadas de sessão (`/api/auth/session`) desabilitando refetch automático no `SessionProvider` e redirecionando para `/` em sessão expirada.
+
+18) Dashboard Admin – métricas simuladas e gráficos (desabilitados por plano)
+- Itens “simulados”: quando não houver dados reais, exibir cards/indicadores com TAG “SIMULADO” visível (badge superior direita) e não persistir no banco. Indicar em tooltips que são exemplos.
+- Gráficos desabilitados por padrão: renderizar placeholders com overlay “Atualize seu plano para usar gráficos”. Sem carregar libs pesadas quando desabilitado.
+- Tipos recomendados (6 blocos):
+  1. Vendas por dia (linha/área)
+  2. Pedidos por hora (barras)
+  3. Mix por categoria (pizza/donut)
+  4. Top 5 produtos (barras horizontais)
+  5. Ticket médio por dia (linha)
+  6. Evolução mensal (barras empilhadas)
+- Layout: grid responsivo `grid-cols-1 md:grid-cols-2 xl:grid-cols-3` com `gap-3` e altura limitada; manter leve.
+- Implementação: `dynamic()` com `ssr:false` para libs de gráfico; feature‑flag (ex.: `config.features.charts === true`) controla renderização; quando `false`, mostrar overlay de upgrade.
+
+19) Navegação/Admin (mobile)
+- Sidebar deve ficar acima do topo (z-index alto) no mobile; overlay sólido e scroll travado no body enquanto aberta.
+- Botões “Painel” e “Sair” fixados no rodapé da sidebar (`mt-auto`).
+
+20) Logs
+- Login (100) e Logout (101) devem ser registrados em todas as origens (nav superior, sidebar, etc.). Demais ações administrativas com mensagens claras e IDs consistentes.

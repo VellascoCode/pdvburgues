@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FaInfoCircle, FaEye, FaDollarSign, FaCog, FaPlus, FaPalette } from 'react-icons/fa';
 import { ICONS, FOOD_KEYS, IconKey } from './food-icons';
+import PinModal from '@/components/PinModal';
 
 type Categoria = 'burger' | 'bebida' | 'pizza' | 'hotdog' | 'sobremesa' | 'frango' | 'veg';
 
@@ -23,7 +24,7 @@ export type NewProductData = {
 interface ProdutoModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (data: NewProductData) => void;
+  onConfirm: (data: NewProductData, pin: string) => void;
 }
 
 const CATEGORIAS: readonly Categoria[] = ['burger', 'bebida', 'pizza', 'hotdog', 'sobremesa', 'frango', 'veg'];
@@ -97,97 +98,9 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (val
   );
 }
 
-function PinModal({
-  onClose,
-  onConfirm,
-}: {
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  const [pin, setPin] = useState(['', '', '', '']);
-  const [error, setError] = useState('');
+// Removido PinModal local; usando componente compartilhado
 
-  const handlePinChange = (index: number, value: string) => {
-    const digit = value.replace(/\D/g, '').slice(0, 1);
-    const newPin = [...pin];
-    newPin[index] = digit;
-    setPin(newPin);
-  };
-
-  const handleConfirm = () => {
-    if (pin.join('') === '1234') {
-      onConfirm();
-      onClose();
-    } else {
-      setError('PIN inválido');
-      setTimeout(() => setError(''), 1200);
-    }
-  };
-
-  return (
-    <motion.div
-      className="fixed inset-0 z-60 flex items-center justify-center p-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-      <div className="absolute inset-0 bg-black/90" onClick={onClose} />
-      <motion.div
-        className="relative w-full max-w-sm rounded-2xl border theme-border theme-surface bg-zinc-900 p-6 shadow-2xl"
-        initial={{ y: 20, scale: 0.95 }}
-        animate={{ y: 0, scale: 1 }}
-        exit={{ y: 20, scale: 0.95 }}
-      >
-        <div className="flex items-center gap-2 mb-2">
-          <FaInfoCircle className="text-zinc-400" />
-          <h3 className="text-sm font-semibold theme-text">Aprovação Admin</h3>
-        </div>
-        <p className="text-xs text-zinc-500 mb-4">
-          Digite o PIN do admin para confirmar o cadastro.
-        </p>
-        <div className="flex items-center justify-center gap-3 mb-4">
-          {pin.map((digit, idx) => (
-            <input
-              key={idx}
-              type="password"
-              aria-label={`Dígito ${idx + 1} do PIN`}
-              maxLength={1}
-              inputMode="numeric"
-              value={digit}
-              onChange={(e) => handlePinChange(idx, e.target.value)}
-              className="w-12 h-12 text-2xl text-center rounded-lg border theme-border bg-zinc-800/60 text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
-          ))}
-        </div>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center text-red-400 text-sm mb-3"
-          >
-            {error}
-          </motion.div>
-        )}
-        <div className="flex items-center justify-end gap-2">
-          <button
-            className="px-4 py-2 rounded-lg border theme-border text-zinc-300 hover:bg-zinc-800 transition-colors"
-            onClick={onClose}
-          >
-            Voltar
-          </button>
-          <button
-            className="px-4 py-2 rounded-lg brand-btn text-white hover:opacity-90 transition-opacity"
-            onClick={handleConfirm}
-          >
-            Confirmar
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onConfirm: (data: NewProductData) => void }) {
+function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onConfirm: (data: NewProductData, pin: string) => void }) {
   const [nome, setNome] = useState('');
   const [categoria, setCategoria] = useState<Categoria>('burger');
   const [preco, setPreco] = useState('');
@@ -202,8 +115,37 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
   const [cor, setCor] = useState('text-orange-400');
   const [bg, setBg] = useState('bg-orange-900/20');
   const [pinModalOpen, setPinModalOpen] = useState(false);
+  type CatOption = { key: Categoria; label: string; iconKey?: string; active?: boolean };
+  const [catOptions, setCatOptions] = useState<CatOption[]>([]);
+  const [openCat, setOpenCat] = useState(false);
+  const catRef = React.useRef<HTMLDivElement | null>(null);
 
-  const handleSave = () => {
+  // Fecha dropdown de categoria com clique fora/ESC
+  useEffect(() => {
+    if (!openCat) return;
+    const onClick = (e: MouseEvent) => {
+      if (!catRef.current) return;
+      if (!catRef.current.contains(e.target as Node)) setOpenCat(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenCat(false); };
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [openCat]);
+
+  useEffect(() => {
+    fetch('/api/categorias')
+      .then(r => r.ok ? r.json() : [])
+      .then((list: CatOption[]) => {
+        if (Array.isArray(list) && list.length) setCatOptions(list);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = (pin: string) => {
     onConfirm({
       nome,
       categoria,
@@ -217,7 +159,7 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
       iconKey,
       cor,
       bg,
-    });
+    }, pin);
     onClose();
   };
 
@@ -232,7 +174,7 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        <div className="absolute inset-0 bg-black/90" onClick={onClose} />
+        <div className="absolute inset-0 bg-black" onClick={onClose} />
         <motion.div
           className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border theme-border  bg-zinc-900 shadow-2xl"
           initial={{ y: 20, scale: 0.95 }}
@@ -314,20 +256,32 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                       />
                     </label>
 
-                    <label className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1.5">
                       <span className="text-xs text-zinc-400">Categoria</span>
-                      <select
-                        className="w-full rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        value={categoria}
-                        onChange={(e) => setCategoria(e.target.value as Categoria)}
-                      >
-                        {CATEGORIAS.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <div className="relative" ref={catRef}>
+                      <button type="button" className="w-full rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 text-left flex items-center justify-between" onClick={()=> setOpenCat(v=>!v)}>
+                        <span className="flex items-center gap-2">
+                          {(() => { const opt = (catOptions.find(c=> c.key===categoria)); const Icon = opt?.iconKey ? ICONS[opt.iconKey as IconKey] : null; return Icon ? <Icon className="w-4 h-4 text-zinc-400" /> : null; })()}
+                          {(catOptions.find(c=> c.key===categoria)?.label) || (categoria.charAt(0).toUpperCase()+categoria.slice(1))}
+                        </span>
+                        <span className="text-zinc-500">▾</span>
+                      </button>
+                        {openCat && (
+                          <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-lg border theme-border bg-zinc-900 shadow-xl">
+                            {(catOptions.length ? catOptions.filter(c=> c.active !== false) : CATEGORIAS.map((k)=> ({ key: k as Categoria, label: k.charAt(0).toUpperCase()+k.slice(1) }))).map((c) => {
+                              const Icon = (c as CatOption).iconKey ? ICONS[(c as CatOption).iconKey as IconKey] : null;
+                              return (
+                                <button key={(c as CatOption).key} className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-800 flex items-center gap-2" onClick={()=> { setCategoria((c as CatOption).key); setOpenCat(false); }}>
+                                  {Icon && <Icon className="w-4 h-4 text-zinc-400" />}
+                                  {(c as CatOption).label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-zinc-500">Selecione a categoria ativa do catálogo</span>
+                    </div>
 
                     <label className="flex flex-col gap-1.5">
                       <span className="text-xs text-zinc-400 flex items-center gap-1.5">
@@ -534,11 +488,7 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
         </motion.div>
       </motion.div>
 
-      <AnimatePresence>
-        {pinModalOpen && (
-          <PinModal onClose={() => setPinModalOpen(false)} onConfirm={handleSave} />
-        )}
-      </AnimatePresence>
+      <PinModal open={pinModalOpen} title="Confirmação Admin" message="Digite o PIN do admin para confirmar o cadastro." onClose={() => setPinModalOpen(false)} onConfirm={async (p)=> { handleSave(p); return true; }} />
     </>
   );
 }

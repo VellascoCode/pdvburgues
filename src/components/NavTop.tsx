@@ -3,7 +3,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { playUiSound } from '@/utils/sound';
 import { useSession } from 'next-auth/react';
 import { APP_NAME } from '@/config/app';
-import { FaSearch, FaBell, FaUser, FaEyeSlash, FaHamburger, FaCogs } from 'react-icons/fa';
+import { FaSearch, FaBell, FaEyeSlash, FaHamburger, FaCogs, FaSignOutAlt, FaUtensils, FaCashRegister, FaTachometerAlt } from 'react-icons/fa';
 import Link from 'next/link';
 
 type Props = {
@@ -11,17 +11,18 @@ type Props = {
   hiddenCols: string[];
   onUnhide: (key: string) => void;
   onNovoPedido: () => void;
-  onSeed: () => void;
-  seedDisabled: boolean;
 };
 
-export default function NavTop({ onSearch, hiddenCols, onUnhide, onNovoPedido, onSeed, seedDisabled }: Props) {
+import { signOut } from 'next-auth/react';
+
+export default function NavTop({ onSearch, hiddenCols, onUnhide, onNovoPedido }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [openCols, setOpenCols] = useState(false);
   const [openTheme, setOpenTheme] = useState(false);
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
   const isAdmin = Boolean((session?.user as { type?: number } | undefined)?.type === 10);
+  const routerPath = typeof window !== 'undefined' ? location.pathname : '';
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -68,30 +69,28 @@ export default function NavTop({ onSearch, hiddenCols, onUnhide, onNovoPedido, o
             >
               + Novo Pedido
             </button>
-            <button
-              className={`px-3 py-2 rounded-lg border ${seedDisabled ? 'bg-zinc-900/50 text-zinc-500 border-zinc-800 cursor-not-allowed' : 'bg-zinc-800/50 hover:bg-zinc-800 text-zinc-300 border-zinc-700'}`}
-              onMouseEnter={() => { if (!seedDisabled) playUiSound('hover'); }}
-              onClick={() => { if (!seedDisabled) { playUiSound('click'); onSeed(); } }}
-              title={seedDisabled ? 'Desabilitado: já existem pedidos no banco' : 'Popular banco com mock'}
-              disabled={seedDisabled}
-              aria-disabled={seedDisabled}
-            >
-              Popular Banco
-            </button>
             <button className="relative p-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-400 hover:text-zinc-200" onMouseEnter={() => playUiSound('hover')} onClick={() => playUiSound('click')}>
               <FaBell className="text-lg" />
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full text-white text-[10px] flex items-center justify-center font-bold">
                 3
               </span>
             </button>
-            <button className="p-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-400 hover:text-zinc-200" onMouseEnter={() => playUiSound('hover')} onClick={() => playUiSound('click')}>
-              <FaUser className="text-lg" />
-            </button>
             {isAdmin && (
-              <Link href="/admin" className="px-3 py-2 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-300 border border-zinc-700 hidden sm:flex items-center gap-2" onMouseEnter={() => playUiSound('hover')}>
-                <FaCogs /> Admin
+              <Link href="/admin" title="Admin" className={`p-2.5 rounded-lg border ${routerPath.startsWith('/admin') ? 'border-orange-600 text-orange-300 bg-orange-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
+                <FaCogs className="text-lg" />
               </Link>
             )}
+            <Link href="/dashboard" title="Geral" className={`p-2.5 rounded-lg border ${routerPath==='/dashboard' ? 'border-emerald-600 text-emerald-300 bg-emerald-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
+              <FaTachometerAlt className="text-lg" />
+            </Link>
+            <Link href="/dashboard?view=cozinha" title="Cozinha" className={`p-2.5 rounded-lg border ${routerPath.startsWith('/cozinha') ? 'border-yellow-600 text-yellow-300 bg-yellow-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
+              <FaUtensils className="text-lg" />
+            </Link>
+            <Link href="/admin/caixa" title="Caixa" className={`p-2.5 rounded-lg border ${routerPath.startsWith('/admin/caixa') ? 'border-sky-600 text-sky-300 bg-sky-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
+              <FaCashRegister className="text-lg" />
+            </Link>
+          
+           
             <button
               className="px-3 py-2 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-300 border border-zinc-700 flex items-center gap-2"
               onMouseEnter={() => playUiSound('hover')}
@@ -101,7 +100,7 @@ export default function NavTop({ onSearch, hiddenCols, onUnhide, onNovoPedido, o
               aria-expanded={openCols}
             >
               <FaEyeSlash />
-              Colunas {hiddenCols.length > 0 ? `(${hiddenCols.length})` : ''}
+              {hiddenCols.length > 0 ? `(${hiddenCols.length})` : ''}
             </button>
             <button
               className="px-3 py-2 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-300 border border-zinc-700 flex items-center gap-2"
@@ -144,6 +143,9 @@ export default function NavTop({ onSearch, hiddenCols, onUnhide, onNovoPedido, o
                 ))}
               </div>
             )}
+              <button title="Sair" className="p-2.5 rounded-lg border border-red-600 text-red-400 bg-red-600/10 hover:bg-red-600/20" onMouseEnter={()=>playUiSound('hover')} onClick={async ()=>{ const access = (session?.user as { access?: string } | undefined)?.access || ''; try { await fetch('/api/logs',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action: 101, access, desc:'logout' })}); } catch{}; signOut({ callbackUrl: '/' }); }}>
+              <FaSignOutAlt className="text-lg" />
+            </button>
           </div>
         </div>
       </div>

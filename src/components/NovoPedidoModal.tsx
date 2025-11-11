@@ -167,7 +167,7 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
   return (
     <AnimatePresence>
       <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-        <div className="absolute inset-0 bg-black/70" />
+        <div className="absolute inset-0 bg-black" />
         <motion.div className="relative w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900" initial={{ y: 20, scale: 0.98 }} animate={{ y:0, scale:1 }}>
           {toast && (
             <div className={`absolute right-4 top-4 z-10 px-3 py-2 rounded-lg text-sm border ${toast.type==='ok' ? 'bg-emerald-600/15 text-emerald-300 border-emerald-600/40' : toast.type==='warn' ? 'bg-yellow-600/15 text-yellow-300 border-yellow-600/40' : 'bg-zinc-700/30 text-zinc-300 border-zinc-600'}`}>{toast.msg}</div>
@@ -407,7 +407,7 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
 
           {/* Mini modal: Novo Cliente */}
           {showNovoCliente && (
-            <div className="absolute inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black z-50 flex items-center justify-center p-4">
               <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 w-full max-w-sm">
                 <div className="text-sm font-semibold theme-text mb-2">Novo Cliente</div>
                 <label className="text-xs text-zinc-400 block mb-2">ID
@@ -426,7 +426,7 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
 
           {/* Lista de Clientes (simulada) */}
           {showClientes && (
-            <div className="absolute inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black z-50 flex items-center justify-center p-4">
               <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 w-full max-w-md max-h-[70vh] overflow-y-auto">
                 <div className="text-sm font-semibold theme-text mb-2">Clientes</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -446,7 +446,7 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
 
           {/* Step PIN */}
           {stepPin && (
-            <div className="absolute inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black z-50 flex items-center justify-center p-4">
               <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 w-full max-w-sm">
                 <div className="text-sm font-semibold theme-text mb-3">Confirmar com PIN do funcionário</div>
                 <div className="flex items-center justify-center gap-3 mb-3">
@@ -468,7 +468,7 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
 
           {/* Confirmar fechamento */}
           {confirmClose && (
-            <div className="absolute inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black z-50 flex items-center justify-center p-4">
               <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 w-full max-w-sm">
                 <div className="text-sm font-semibold theme-text mb-2">Deseja fechar o pedido?</div>
                 <p className="text-xs text-zinc-500 mb-3">Itens não salvos serão perdidos.</p>
@@ -484,4 +484,3 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
     </AnimatePresence>
   );
 }
-

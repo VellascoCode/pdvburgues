@@ -1,4 +1,5 @@
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/router';
 import type { GetServerSideProps } from 'next';
 import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
@@ -9,13 +10,14 @@ import AdminNav from '@/components/AdminNav';
 import AdminSidebar from '@/components/AdminSidebar';
 
 export default function AdminUsuarios() {
-  const { status } = useSession({ required: true });
+  const router = useRouter();
+  const { status } = useSession({ required: true, onUnauthenticated() { router.replace('/'); } });
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   if (status !== 'authenticated') return null;
   return (
     <div className="min-h-screen app-gradient-bg">
       <AdminNav onToggleSidebar={() => setSidebarOpen(v=>!v)} />
-      <main className="flex min-h-[calc(100vh-56px)]">
+      <main className="flex w-full max-w-full overflow-x-hidden min-h-[calc(100vh-56px)]">
         <AdminSidebar active="usuarios" open={sidebarOpen} onClose={()=> setSidebarOpen(false)} />
         <section className="flex-1 p-6">
           <h2 className="text-lg font-semibold theme-text mb-3">Usuários</h2>
@@ -39,4 +41,3 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   } catch {}
   return { props: {} };
 };
-

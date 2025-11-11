@@ -195,7 +195,7 @@ export default function Dashboard() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [clock, setClock] = useState<number | null>(null);
-  const [serverCount, setServerCount] = useState<number>(0);
+  // serverCount removido (seed desativado)
   const [searchTerm, setSearchTerm] = useState("");
   const [showCancelados, setShowCancelados] = useState(false);
   const [hiddenCols, setHiddenCols] = useState<string[]>([]);
@@ -226,10 +226,10 @@ export default function Dashboard() {
       const resp = await fetch('/api/pedidos');
       const lista = resp.ok ? await resp.json() : [];
       setPedidos(lista);
-      setServerCount(Array.isArray(lista) ? lista.length : 0);
+      // serverCount removed
     } catch {
       setPedidos([]);
-      setServerCount(0);
+      // serverCount removed
     } finally { setLoading(false); }
   }
 
@@ -282,8 +282,6 @@ export default function Dashboard() {
         hiddenCols={hiddenCols}
         onUnhide={(key: string)=> setHiddenCols(prev=> prev.filter(k=>k!==key))}
         onNovoPedido={() => setShowNovo(true)}
-        onSeed={async () => { try { await fetch('/api/pedidos/seed', { method: 'POST' }); await reloadFromServer(); } catch {} }}
-        seedDisabled={serverCount > 0}
       />
       {/* Removido: banner de status offline/online */}
       

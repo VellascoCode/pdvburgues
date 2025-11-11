@@ -88,7 +88,7 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-labelledby="pedido-detalhes-title">
-          <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+          <div className="absolute inset-0 bg-black" onClick={onClose} />
           <motion.div ref={dialogRef} initial={{ y: 20, scale: 0.98 }} animate={{ y:0, scale:1 }} exit={{ y: 20, opacity: 0 }} className={`relative bg-zinc-900 rounded-2xl border border-zinc-800 w-full max-w-3xl max-h-[85vh] overflow-hidden` }>
             <div className="p-5 border-b border-zinc-800 bg-zinc-800/20">
               <div className="flex items-center justify-between">

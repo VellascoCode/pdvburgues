@@ -1,4 +1,5 @@
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/router';
 import type { GetServerSideProps } from 'next';
 import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
@@ -10,7 +11,8 @@ import AdminSidebar from '@/components/AdminSidebar';
 import type { LogEntry } from '@/lib/logs';
 
 export default function AdminLogs() {
-  const { status } = useSession({ required: true });
+  const router = useRouter();
+  const { status } = useSession({ required: true, onUnauthenticated() { router.replace('/'); } });
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [logs, setLogs] = React.useState<LogEntry[]>([]);
   React.useEffect(() => {
@@ -20,7 +22,7 @@ export default function AdminLogs() {
   return (
     <div className="min-h-screen app-gradient-bg">
       <AdminNav onToggleSidebar={() => setSidebarOpen(v=>!v)} />
-      <main className="flex min-h-[calc(100vh-56px)]">
+      <main className="flex w-full max-w-full overflow-x-hidden min-h-[calc(100vh-56px)]">
         <AdminSidebar active="logs" open={sidebarOpen} onClose={()=> setSidebarOpen(false)} />
         <section className="flex-1 p-6">
           <h2 className="text-lg font-semibold theme-text mb-3">Logs</h2>
@@ -69,4 +71,3 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   } catch {}
   return { props: {} };
 };
-
