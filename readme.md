@@ -1,40 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+PDV Burgues — Next.js + MongoDB (MVP1)
 
-## Getting Started
+Visão geral
+- PDV completo para delivery/balcão com sessão de caixa, catálogo, clientes, pedidos e página pública de acompanhamento por PIN.
+- Frontend Next.js (Pages Router) + NextAuth Credentials (Access ID 3 dígitos + PIN 4 dígitos) + MongoDB.
+- Testes fim‑a‑fim via endpoint interno que gera relatórios em `test-reports/`.
 
-First, run the development server:
+Stack
+- Next.js (Pages) + React + Tailwind classes utilitárias (tema via tokens `theme-*`).
+- MongoDB (coleções: `users`, `products`, `categories`, `orders`, `cash`, `customers`, `logs`, `events`, `feedback`).
+- NextAuth (credentials) com PIN criptografado (scrypt) e sessão JWT.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Instalação
+- Requisitos: Node 18+, MongoDB (local ou Atlas).
+- Variáveis de ambiente em `.env`:
+  - `MONGODB_URI=mongodb://localhost:27017/pdvburgues` (ajuste conforme seu ambiente)
+  - `NEXTAUTH_SECRET="sua_chave_segura"`
+  - `NEXTAUTH_URL=http://localhost:3000`
+- Instalar dependências: `npm install`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Executar
+- Desenvolvimento: `npm run dev` e abra `http://localhost:3000`.
+- Semeie o admin padrão: `GET /api/users/ensure-admin` (cria `access=000`, `pin=1234` se vazio).
+- Login: informe `000` e `1234`.
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+APIs principais
+- `GET/PUT /api/config` — Configuração (inclui `sounds`, horários/dias, tipo de tenant).
+- `GET/POST /api/users`, `GET/PUT /api/users/[access]`, `GET /api/users/check` — Usuários.
+- `GET/POST /api/categorias`, `GET/PUT/DELETE /api/categorias/[key]` — Categorias (com `withCounts=1`).
+- `GET/POST /api/produtos`, `GET/PUT/DELETE /api/produtos/[id]` — Produtos (filtros `ativo`, `promo=active`, `stock=gt0`).
+- `GET/POST /api/clientes`, `GET/PUT /api/clientes/[uuid]` — Clientes (dedupe telefone/email, edição com PIN).
+- `GET/POST /api/pedidos`, `GET/PUT /api/pedidos/[id]` — Pedidos (validações preço/qty; timestamps; sessionId forçado no server).
+- `POST /api/pedidos/feedback` — Feedback “leve” (cls) e espelho em `cash.completos[].cls`.
+- `GET/POST /api/caixa` — Sessão de Caixa (abrir/pausar/retomar/entradas/saídas/fechar).
+- `GET /api/pedidos/public` — Consulta pública por id+code+PIN (expira 1h após COMPLETO).
+- `GET/POST /api/logs` — Logs administrativos e de ações relevantes.
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+Testes
+- E2E automatizado: `GET /api/testesgeral?stream=1&save=1`.
+  - Gera `test-reports/geral-*.md/.json` com o checklist e status HTTP de cada etapa.
+  - Cobre: ensure-admin, users check, config put/get, categorias CRUD/bloqueios, produtos CRUD/stats/filtros, clientes create/XSS, logs write/read, pedidos create/list/oversell/preço negativo/status chain/cancel estorno/venda extra por método, fidelidade +1/estorno, caixa abrir/pausar/retomar/entradas/saídas/top3/get/fechar, feedback ok/dup/agg 7/30/90, público ok/expirado/PIN errado, filtros de produtos.
+- Manual: consulte `tests.md` (passo a passo humano) para UI/Fluxo completo.
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+MVP1 — O que está pronto
+- Sessão de caixa com totais por pagamento e top 3 itens positivos; base inicial; relatório/snapshot.
+- Pedidos: criação, fluxo de status com histórico de timestamps, cancelamento com estorno simétrico, venda extra por método.
+- Produtos: CRUD, promo ativa, flags, paginação, filtros de API; UI com categorias ativas/inativas e stats por produto/estoque.
+- Categorias: CRUD, contagem de produtos (`withCounts=1`), bloqueio de exclusão com produtos vinculados.
+- Clientes: criação com dedupe telefone/email, edição leve via UI com PIN.
+- Público: página `/pedido/[id]` com PIN e expiração; UI premium (dark) e microinterações.
+- Config: toggle global de sons respeitado no app; métricas e estatísticas auxiliares.
+- Segurança: ignora `sessionId` enviado pelo cliente, bloqueios 400/401/403/409 conforme as regras de negócio; sanitize básico de payloads (e.g., bloqueio `$set`).
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+MVP1 — O que falta (alto nível)
+- ID personalizado do pedido (1 dígito + 1 letra + 4 dígitos) end‑to‑end.
+- Fluxo de pagamento no UI: PENDENTE → método (recalcular `porPagamento`/totais quando marcado PAGO).
+- Cards de métricas reais no Admin (Vendas hoje, Pedidos, Ticket médio, Pagamento mais usado, Top 3) lendo `GET /api/caixa`.
+- Acessibilidade/tema: auditoria final de tokens `theme-*` e foco/ARIA; áreas clicáveis.
+- Rate limit simples nas rotas sensíveis a PIN; sanitização completa de chaves `$`/`.` nos payloads.
+- Skeletons/estado vazio explícitos no catálogo; pequenos refinamentos de UI.
 
-## Learn More
+Estrutura
+- Páginas: `src/pages` (dashboard, admin/*, pedido/[id], api/*).
+- Componentes: `src/components` (PedidoCard, Modais, Admin*).
+- Biblioteca: `src/lib` (mongodb, authz, security).
+- Testes: `src/pages/api/testesgeral.ts`, util `src/tests/mockReqRes.ts`, relatórios em `test-reports/`.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+Observações
+- O endpoint de testes altera `process.env.TEST_ACCESS` durante a execução para simular o admin logado.
+- PWA/offline‑first é opcional e fora do escopo do MVP1; poderá ser tratado no MVP2.

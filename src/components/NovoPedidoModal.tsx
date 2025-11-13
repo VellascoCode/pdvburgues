@@ -1,15 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaTimes, FaPlus, FaUser, FaClipboardList, FaShoppingBag, FaCheck } from 'react-icons/fa';
 import type { Pedido } from '@/utils/indexedDB';
+import { createPedido } from '@/lib/pedidosClient';
 import { playUiSound } from '@/utils/sound';
+import { ICONS, type IconKey } from '@/components/food-icons';
+import ClientesModal from '@/components/ClientesModal';
+import NovoClienteModal from '@/components/NovoClienteModal';
 
 type CatalogItem = {
   id: string;
   nome: string;
   preco: number;
   promo?: number;
-  categoria: 'burger'|'bebida'|'pizza'|'hotdog'|'sobremesa'|'frango'|'veg';
+  categoria: string;
   icon: React.ComponentType<{ className?: string }>;
   cor: string; // classes de cor tailwind (ícone)
   bg: string;  // classes de fundo do topo (2/5)
@@ -19,20 +23,21 @@ type CatalogItem = {
   stock: number | 'inf';
 };
 
-import { FaHamburger, FaLeaf, FaGlassWhiskey, FaCoffee, FaPizzaSlice, FaHotdog, FaIceCream, FaDrumstickBite, FaCheese } from 'react-icons/fa';
-
-const CATALOG: CatalogItem[] = [
-  { id:'xb', nome:'X-Burger', preco: 18.9, categoria:'burger', icon: FaHamburger, cor:'text-orange-400', bg:'bg-orange-900/20', desc:'Pão, carne 120g, queijo e molho da casa.', stock: 12 },
-  { id:'xd', nome:'X-Duplo', preco: 28.9, promo: 24.9, categoria:'burger', icon: FaHamburger, cor:'text-amber-400', bg:'bg-amber-900/20', combo:true, desc:'Dois hambúrgueres 120g com queijo duplo.', stock: 8 },
-  { id:'veg', nome:'Veggie', preco: 22.9, categoria:'veg', icon: FaLeaf, cor:'text-emerald-400', bg:'bg-emerald-900/20', desc:'Grão-de-bico, alface, tomate e molho leve.', stock: 10 },
-  { id:'coca', nome:'Refrigerante', preco: 6, categoria:'bebida', icon: FaGlassWhiskey, cor:'text-sky-400', bg:'bg-sky-900/20', desc:'Refrigerante gelado (lata 350ml).', stock: 'inf' },
-  { id:'cafe', nome:'Café', preco: 4, categoria:'bebida', icon: FaCoffee, cor:'text-yellow-300', bg:'bg-yellow-900/20', desc:'Café expresso curto, fresco e encorpado.', stock: 'inf' },
-  { id:'pizza', nome:'Pizza Fatia', preco: 9.9, categoria:'pizza', icon: FaPizzaSlice, cor:'text-pink-400', bg:'bg-pink-900/20', desc:'Fatia de pizza marguerita assada na hora.', stock: 20 },
-  { id:'hotdog', nome:'Hot Dog', preco: 12.9, categoria:'hotdog', icon: FaHotdog, cor:'text-red-400', bg:'bg-red-900/20', desc:'Pão, salsicha, molho especial e batata palha.', stock: 18 },
-  { id:'sorvete', nome:'Sorvete', preco: 7.5, categoria:'sobremesa', icon: FaIceCream, cor:'text-fuchsia-300', bg:'bg-fuchsia-900/20', desc:'Taça de sorvete cremoso (sabores do dia).', stock: 25 },
-  { id:'frango', nome:'Chicken Crispy', preco: 16.9, categoria:'frango', icon: FaDrumstickBite, cor:'text-rose-300', bg:'bg-rose-900/20', desc:'Tiras de frango empanado, crocantes.', stock: 15 },
-  { id:'cheese', nome:'Cheese Burger', preco: 21.9, categoria:'burger', icon: FaCheese, cor:'text-yellow-400', bg:'bg-yellow-900/20', desc:'Hambúrguer com cheddar cremoso.', stock: 14 },
-];
+type ApiProduct = {
+  _id?: string;
+  nome: string;
+  categoria: string;
+  preco: number;
+  promo?: number;
+  promoAtiva?: boolean;
+  ativo: boolean;
+  combo?: boolean;
+  desc: string;
+  stock: number | 'inf';
+  iconKey: string;
+  cor: string;
+  bg: string;
+};
 
 function currencyFromInput(s: string): number {
   const digits = s.replace(/\D/g, '');
@@ -53,13 +58,18 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
   const [pin, setPin] = useState(['','','','']);
   const [pinErr, setPinErr] = useState('');
   const [saving, setSaving] = useState(false);
-  const [categoria, setCategoria] = useState<'todos'|CatalogItem['categoria']>('todos');
-  const [itens, setItens] = useState<Array<{id:string; nome:string; preco:number; quantidade:number}>>([]);
-  const [cliente, setCliente] = useState<{ id: string; nick: string }>({ id:'BALC', nick:'Balcão' });
-  const [showNovoCliente, setShowNovoCliente] = useState(false);
-  const [motoboy, setMotoboy] = useState('');
+  const [categoria, setCategoria] = useState<'todos'|string>('todos');
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  type CatChip = { key: string; label: string };
+  const [cats, setCats] = useState<CatChip[]>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState<boolean>(true);
+  const [itens, setItens] = useState<Array<{id:string; nome:string; preco:number; quantidade:number; categoria?: string}>>([]);
+  const [cliente, setCliente] = useState<{ id: string; nick: string; estrelas?: number; gasto?: number; simpatia?: number; compras?: number }>({ id:'BALC', nick:'Balcão', estrelas: 0, gasto: 0, simpatia: 0, compras: 0 });
+  const [entregaTipo, setEntregaTipo] = useState<'MOTOBOY'|'RETIRADA'|'TRANSPORTADORA'|'OUTRO'>('RETIRADA');
   const [pagamento, setPagamento] = useState<'DINHEIRO'|'CARTAO'|'PIX'|'ONLINE'|'PENDENTE'>('PENDENTE');
   const [valorRecebidoInput, setValorRecebidoInput] = useState('');
+  const [entregaValorInput, setEntregaValorInput] = useState('');
+  const [taxaOn, setTaxaOn] = useState(false);
   const [precisaTroco, setPrecisaTroco] = useState(false);
   const [observacoes, setObservacoes] = useState('');
   const [fidelidadeOn, setFidelidadeOn] = useState(false);
@@ -68,25 +78,99 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
   const [flashIds, setFlashIds] = useState<Record<string, number>>({});
   const [confirmClose, setConfirmClose] = useState(false);
   const [showClientes, setShowClientes] = useState(false);
+  const [clientesLoaded, setClientesLoaded] = useState(false);
+  const [showNovoCliente, setShowNovoCliente] = useState(false);
+  const pinInputs = useRef<Array<HTMLInputElement|null>>([null,null,null,null]);
 
   const subtotal = useMemo(() => itens.reduce((a, it) => a + it.preco*it.quantidade, 0), [itens]);
-  const total = subtotal; // sem taxas por enquanto
+  const entregaValor = useMemo(() => currencyFromInput(entregaValorInput), [entregaValorInput]);
+  const total = useMemo(() => subtotal + (taxaOn && isFinite(entregaValor) ? entregaValor : 0), [subtotal, entregaValor, taxaOn]);
   const valorRecebido = useMemo(() => currencyFromInput(valorRecebidoInput), [valorRecebidoInput]);
   const troco = useMemo(() => precisaTroco ? Math.max(0, valorRecebido - total) : 0, [valorRecebido, total, precisaTroco]);
   const trocoInsuficiente = precisaTroco && valorRecebido < total;
 
-  const filteredCatalog = useMemo(() => CATALOG.filter(c => (categoria==='todos' ? true : c.categoria===categoria) && (c.ativo ?? true)), [categoria]);
+  // Carrega catálogo real da API ao abrir o modal
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoadingCatalog(true);
+      try {
+        const [rp, rc] = await Promise.all([
+          fetch('/api/produtos?ativo=1&cats=active&pageSize=200'),
+          fetch('/api/categorias?active=1&pageSize=200'),
+        ]);
+        if (!rp.ok) throw new Error('erro ao buscar produtos');
+        const data = await rp.json() as { items?: ApiProduct[] };
+        const items = Array.isArray(data.items) ? data.items : [];
+        let catMap: Record<string, string> = {};
+        if (rc.ok) {
+          const catsResp = await rc.json() as { items?: Array<{ key: string; label: string }> };
+          const arr = Array.isArray(catsResp.items) ? catsResp.items : [];
+          catMap = Object.fromEntries(arr.map(c => [c.key, c.label]));
+        }
+        const mapped: CatalogItem[] = items.map((p) => {
+          const key = (p.iconKey || 'hamburger') as IconKey;
+          const Icon = ICONS[key] || ICONS.hamburger;
+          const precoBase = p.preco;
+          const precoPromo = p.promoAtiva && typeof p.promo === 'number' ? p.promo : undefined;
+          return {
+            id: String(p._id || p.nome),
+            nome: p.nome,
+            categoria: p.categoria,
+            preco: precoBase,
+            promo: precoPromo,
+            icon: Icon,
+            cor: p.cor,
+            bg: p.bg,
+            ativo: p.ativo,
+            combo: p.combo,
+            desc: p.desc,
+            stock: p.stock,
+          };
+        }).filter(it => it.ativo !== false);
+        const available = mapped.filter(it => it.stock === 'inf' || (typeof it.stock === 'number' && it.stock > 0));
+        if (!cancelled) {
+          setCatalog(available);
+          const uniqKeys = Array.from(new Set(available.map(m => m.categoria))).sort();
+          const chips: CatChip[] = uniqKeys.map(key => ({ key, label: catMap[key] || key.toUpperCase() }));
+          setCats(chips);
+        }
+      } catch {
+        if (!cancelled) { setCatalog([]); setCats([]); }
+      }
+      if (!cancelled) setLoadingCatalog(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredCatalog = useMemo(() => catalog.filter(c => (categoria==='todos' ? true : c.categoria===categoria) && (c.ativo ?? true)), [catalog, categoria]);
+  const stockById = useMemo(() => Object.fromEntries(catalog.map(c => [c.id, c.stock])), [catalog]);
+  const usedById = useMemo(() => itens.reduce((acc, it) => { acc[it.id] = (acc[it.id]||0) + (it.quantidade||1); return acc; }, {} as Record<string, number>), [itens]);
+  const remainingOf = (id: string) => {
+    const s = stockById[id];
+    if (s === 'inf' || typeof s !== 'number') return Infinity;
+    const used = usedById[id] || 0;
+    return Math.max(0, s - used);
+  };
 
   function addItem(c: CatalogItem) {
     setItens(prev => {
       const idx = prev.findIndex(p => p.id === c.id);
       const preco = c.promo ?? c.preco;
+      const rem = remainingOf(c.id);
+      if (rem <= 0) {
+        setToast({ msg: 'Sem estoque disponível', type: 'warn' });
+        setTimeout(() => setToast(null), 1500);
+        return prev; // sem estoque
+      }
       if (idx >= 0) {
         const copy = [...prev];
-        copy[idx] = { ...copy[idx], quantidade: Math.max(1, copy[idx].quantidade + 1) };
+        const nextQty = Math.min(copy[idx].quantidade + 1, (stockById[c.id]==='inf' ? Number.MAX_SAFE_INTEGER : (typeof stockById[c.id]==='number' ? stockById[c.id] as number : Number.MAX_SAFE_INTEGER)));
+        copy[idx] = { ...copy[idx], quantidade: Math.max(1, nextQty) };
         return copy;
       }
-      return [...prev, { id: c.id, nome: c.nome, preco, quantidade: 1 }];
+      return [...prev, { id: c.id, nome: c.nome, preco, quantidade: 1, categoria: c.categoria }];
     });
     playUiSound('click');
     setFlashIds((m: Record<string, number>) => ({ ...m, [c.id]: Date.now() }));
@@ -95,7 +179,13 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
     setTimeout(() => setToast(null), 1000);
   }
   function inc(id: string, d=1) {
-    setItens(prev => prev.map(it => it.id===id ? { ...it, quantidade: Math.max(1, it.quantidade + d) } : it));
+    setItens(prev => prev.map(it => {
+      if (it.id !== id) return it;
+      const s = stockById[id];
+      const max = s==='inf' || typeof s !== 'number' ? Number.MAX_SAFE_INTEGER : s;
+      const next = Math.max(1, Math.min(it.quantidade + d, max));
+      return { ...it, quantidade: next };
+    }));
   }
   function remove(id: string) {
     setItens(prev => prev.filter(it => it.id!==id));
@@ -104,19 +194,48 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
   async function confirmarPedido() {
     setSaving(true);
     try {
+      const taxaNorm = (() => {
+        if (!taxaOn) return 0;
+        const base = entregaValor;
+        const n = isFinite(base) ? Math.max(0, base) : 0;
+        const rounded = Math.round(n * 100) / 100;
+        return rounded < 0.005 ? 0 : rounded;
+      })();
+      const fidelidadePayload = (cliente.id !== 'BALC' && fidelidadeOn && evento) ? { fidelidade: { enabled: true, evento } } : {};
+      type ApiPedidoItem = { pid?: string; id?: string; nome: string; quantidade?: number; preco?: number; categoria?: string };
+      type ClientePayload = { id: string; nick: string; genero?: 'M'|'F'|'O'; estrelas?: number; gasto?: number; simpatia?: number; compras?: number };
       const novo: Pedido = {
         id: Math.random().toString(36).slice(2,8).toUpperCase(),
         status: 'EM_AGUARDO',
-        itens: itens.map(it => ({ nome: it.nome, quantidade: it.quantidade, preco: it.preco })),
+        itens: itens.map(it => ({ pid: it.id, id: it.id, nome: it.nome, quantidade: it.quantidade, preco: it.preco, categoria: it.categoria } as ApiPedidoItem)),
         pagamento: pagamento,
-        entrega: motoboy ? 'Delivery' : 'Balcão',
+        entrega: entregaTipo,
         troco: troco || 0,
         observacoes,
-        cliente: { id: cliente.id, nick: cliente.nick, genero: 'O', estrelas: 3, gasto: 3, simpatia: 3 },
-        fidelidade: { enabled: fidelidadeOn, evento: evento || undefined },
-        motoboy: motoboy || undefined,
+        ...(taxaOn && taxaNorm > 0 ? { taxaEntrega: taxaNorm } : {}),
+        cliente: (() => {
+          const c: ClientePayload = { id: cliente.id, nick: cliente.nick };
+          if (cliente.id === 'BALC') {
+            c.estrelas = 0; c.gasto = 0; c.simpatia = 0; c.compras = 0;
+          } else {
+            if (typeof cliente.estrelas === 'number') c.estrelas = Math.max(0, Math.min(5, cliente.estrelas));
+            if (typeof cliente.gasto === 'number') c.gasto = Math.max(0, Math.min(5, cliente.gasto));
+            if (typeof cliente.simpatia === 'number') c.simpatia = Math.max(0, Math.min(5, cliente.simpatia));
+            const baseCompras = typeof cliente.compras === 'number' ? (cliente.compras|0) : 0;
+            // Mostra já +1 no card ao criar novo pedido
+            c.compras = Math.max(0, baseCompras + 1);
+          }
+          c.genero = 'O';
+          return c;
+        })(),
+        ...fidelidadePayload,
       } as unknown as Pedido;
-      try { await fetch('/api/pedidos', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(novo) }); } catch {}
+      const r = await createPedido(novo);
+      if (!r.ok) {
+        setToast({ msg: r.error || 'Falha ao salvar', type: 'warn' });
+        setTimeout(() => setToast(null), 2000);
+        return;
+      }
       await onSaved();
       onClose();
     } finally {
@@ -141,9 +260,11 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
   function checkPinAndConfirm() {
     const pinStr = pin.join('');
     if (pinStr === '1234') {
+      playUiSound('success');
       confirmarPedido();
     } else {
-      setPinErr('PIN inválido');
+      playUiSound('error');
+      setPinErr('PIN inválido. Verifique e tente novamente.');
       setTimeout(()=> setPinErr(''), 1200);
     }
   }
@@ -163,6 +284,13 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [showNovoCliente, stepPin, handleConfirmClick, onClose]);
+
+  useEffect(() => {
+    if (!stepPin) return;
+    playUiSound('open');
+    const t = setTimeout(() => pinInputs.current[0]?.focus(), 50);
+    return () => clearTimeout(t);
+  }, [stepPin]);
 
   return (
     <AnimatePresence>
@@ -196,7 +324,24 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
                     <button className="px-2.5 py-1.5 text-xs rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 inline-flex items-center gap-2" onClick={()=> setShowNovoCliente(true)}>
                       <FaPlus className="opacity-80" /> Novo cliente
                     </button>
-                    <button className="px-2.5 py-1.5 text-xs rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 inline-flex items-center gap-2" onClick={()=> setShowClientes(true)}>
+                    <button className="px-2.5 py-1.5 text-xs rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 inline-flex items-center gap-2" onClick={async()=>{
+                      try {
+                        const r = await fetch('/api/clientes?page=1&pageSize=1');
+                        const j = r.ok ? await r.json() : { total: 0 };
+                        const has = Number(j.total || 0) > 0;
+                        if (!has) {
+                          setToast({ msg: 'Nenhum cliente cadastrado.', type: 'warn' });
+                          setTimeout(() => setToast(null), 2000);
+                          setClientesLoaded(false);
+                          return;
+                        }
+                        setClientesLoaded(true);
+                        setShowClientes(true);
+                      } catch {
+                        setToast({ msg: 'Falha ao carregar clientes.', type: 'warn' });
+                        setTimeout(() => setToast(null), 2000);
+                      }
+                    }}>
                       <FaUser className="opacity-80" /> Clientes
                     </button>
                   </div>
@@ -208,15 +353,15 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={fidelidadeOn}
-                        onClick={()=> setFidelidadeOn(v=>!v)}
-                        className={`w-10 h-6 rounded-full border transition relative ${fidelidadeOn ? 'bg-emerald-600 border-emerald-500' : 'bg-zinc-700 border-zinc-600'}`}
+                        aria-checked={fidelidadeOn && cliente.id!=='BALC'}
+                        onClick={()=> { if (cliente.id==='BALC') return; setFidelidadeOn(v=>!v); }}
+                        className={`w-10 h-6 rounded-full border transition relative ${(fidelidadeOn && cliente.id!=='BALC') ? 'bg-emerald-600 border-emerald-500' : 'bg-zinc-700 border-zinc-600'} ${cliente.id==='BALC' ? 'opacity-50 cursor-not-allowed' : ''}`}
                         aria-label="Alternar fidelidade"
                       >
-                        <span className={`absolute top-0.5 ${fidelidadeOn ? 'left-5' : 'left-0.5'} w-5 h-5 rounded-full bg-white transition`}></span>
+                        <span className={`absolute top-0.5 ${(fidelidadeOn && cliente.id!=='BALC') ? 'left-5' : 'left-0.5'} w-5 h-5 rounded-full bg-white transition`}></span>
                       </button>
                     </div>
-                    <select className="rounded border theme-border bg-zinc-900/50 text-zinc-200 text-sm px-2 py-1.5" value={evento} onChange={e=> setEvento(e.target.value)} disabled={!fidelidadeOn}>
+                    <select className="rounded border theme-border bg-zinc-900/50 text-zinc-200 text-sm px-2 py-1.5" value={evento} onChange={e=> setEvento(e.target.value)} disabled={!fidelidadeOn || cliente.id==='BALC'}>
                       <option value="">Evento</option>
                       <option value="primeira_compra">Primeira compra</option>
                       <option value="combo">Combo</option>
@@ -228,15 +373,15 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
                 <div className="rounded-xl border theme-border p-3">
                   <div className="text-sm font-semibold theme-text mb-2 flex items-center gap-2"><FaClipboardList className="opacity-80" /> Pedido</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="text-xs text-zinc-400">Motoboy
-                      <select className="mt-1 w-full rounded border theme-border bg-zinc-900/50 text-zinc-200 text-sm px-2 py-1.5" value={motoboy} onChange={e=> setMotoboy(e.target.value)}>
-                        <option value="">—</option>
-                        <option>Felipe</option>
-                        <option>Joana</option>
-                        <option>Rodrigo</option>
+                    <label className="text-xs text-zinc-400">Entrega
+                      <select className="mt-1 w-full rounded border theme-border bg-zinc-900/50 text-zinc-200 text-sm px-2 py-1.5" value={entregaTipo} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=> setEntregaTipo(e.target.value as 'MOTOBOY'|'RETIRADA'|'TRANSPORTADORA'|'OUTRO')}>
+                        <option value="MOTOBOY">Motoboy</option>
+                        <option value="RETIRADA">Retirada</option>
+                        <option value="TRANSPORTADORA">Transportadora</option>
+                        <option value="OUTRO">Outro</option>
                       </select>
                     </label>
-                    <label className="text-xs text-zinc-400">Pagamento
+                  <label className="text-xs text-zinc-400">Pagamento
                       <select
                         className="mt-1 w-full rounded border theme-border bg-zinc-900/50 text-zinc-200 text-sm px-2 py-1.5"
                         value={pagamento}
@@ -251,12 +396,38 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
                         <option value="ONLINE">ONLINE</option>
                       </select>
                     </label>
-                    <label className="text-xs text-zinc-400 col-span-2">Valor recebido (se dinheiro)
+                  <label className="text-xs text-zinc-400 col-span-2">Valor recebido (se dinheiro)
                       <input className="mt-1 w-full rounded border theme-border bg-zinc-900/50 text-zinc-200 text-sm px-2 py-1.5" placeholder="R$ 0,00" value={valorRecebidoInput} onChange={(e)=> {
                         const v = currencyFromInput(e.target.value);
                         setValorRecebidoInput(v ? v.toLocaleString('pt-BR', { style:'currency', currency:'BRL' }) : '');
                       }} />
+                  </label>
+                  <div className="col-span-2 grid grid-cols-3 gap-2 items-end">
+                    <label className="text-xs text-zinc-400 col-span-1">Cobrar taxa?
+                      <button
+                        type="button"
+                        aria-label="Alternar taxa de entrega"
+                        aria-checked={taxaOn}
+                        role="switch"
+                        onClick={() => setTaxaOn(v=>!v)}
+                        className={`mt-1 w-12 h-7 rounded-full border transition relative ${taxaOn ? 'bg-emerald-600 border-emerald-500' : 'bg-zinc-700 border-zinc-600'}`}
+                      >
+                        <span className={`absolute top-0.5 ${taxaOn ? 'left-6' : 'left-0.5'} w-6 h-6 rounded-full bg-white transition`} />
+                      </button>
                     </label>
+                    <label className="text-xs text-zinc-400 col-span-2">Taxa de entrega
+                      <input
+                        className="mt-1 w-full rounded border theme-border bg-zinc-900/50 text-zinc-200 text-sm px-2 py-1.5 disabled:opacity-50"
+                        placeholder="R$ 0,00"
+                        value={entregaValorInput}
+                        onChange={(e)=> {
+                          const v = currencyFromInput(e.target.value);
+                          setEntregaValorInput(v ? v.toLocaleString('pt-BR', { style:'currency', currency:'BRL' }) : '');
+                        }}
+                        disabled={!taxaOn}
+                      />
+                    </label>
+                  </div>
                     <div className="col-span-2 flex items-center justify-between">
                       <div className="flex items-center gap-2 text-xs text-zinc-400">
                         <span>Precisa de troco?</span>
@@ -285,16 +456,33 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
                 </div>
               </div>
 
-              {/* Filtros de categoria */}
+              {/* Filtros de categoria (dinâmicos, apenas onde há itens disponíveis) */}
               <div className="flex flex-wrap gap-2 mb-3">
-                {(['todos','burger','bebida','pizza','hotdog','frango','sobremesa','veg'] as const).map(cat => (
-                  <button key={cat} className={`px-3 py-1.5 text-xs rounded-full border ${categoria===cat ? 'border-orange-600 bg-orange-500/15 text-orange-300' : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`} onClick={()=> setCategoria(cat)}>
-                    {cat.toUpperCase()}
+                <button className={`px-3 py-1.5 text-xs rounded-full border ${categoria==='todos' ? 'border-orange-600 bg-orange-500/15 text-orange-300' : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`} onClick={()=> setCategoria('todos')}>
+                  TODOS
+                </button>
+                {cats.map(cat => (
+                  <button key={cat.key} className={`px-3 py-1.5 text-xs rounded-full border ${categoria===cat.key ? 'border-orange-600 bg-orange-500/15 text-orange-300' : 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`} onClick={()=> setCategoria(cat.key)}>
+                    {cat.label}
                   </button>
                 ))}
               </div>
 
               {/* Grid de itens */}
+              {loadingCatalog ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
+                  {Array.from({ length: 6 }).map((_,i) => (
+                    <div key={i} className="animate-pulse rounded-xl border theme-border overflow-hidden">
+                      <div className="aspect-video bg-zinc-800/40" />
+                      <div className="p-3 space-y-2">
+                        <div className="h-4 bg-zinc-800 rounded w-2/3" />
+                        <div className="h-3 bg-zinc-800 rounded w-1/2" />
+                        <div className="h-5 bg-zinc-800 rounded w-1/3" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3">
                 {filteredCatalog.map(c => {
                   const Icon = c.icon;
@@ -341,6 +529,7 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
                   );
                 })}
               </div>
+              )}
             </div>
 
             {/* Direita: Resumo */}
@@ -374,6 +563,7 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
               </div>
               <div className="mt-3 space-y-1 text-sm">
                 <div className="flex items-center justify-between text-zinc-400"><span>Subtotal</span><span className="font-mono text-zinc-300">{currencyToInput(subtotal)}</span></div>
+                <div className="flex items-center justify-between text-zinc-400"><span>Entrega</span><span className="font-mono text-zinc-300">{taxaOn ? currencyToInput(entregaValor) : currencyToInput(0)}</span></div>
                 <div className="flex items-center justify-between text-zinc-400"><span>Total</span><span className="font-mono text-zinc-100">{currencyToInput(total)}</span></div>
                 {precisaTroco && (
                   <div className="flex items-center justify-between text-zinc-400"><span>Recebido</span><span className="font-mono text-zinc-300">{currencyToInput(valorRecebido)}</span></div>
@@ -405,56 +595,39 @@ export default function NovoPedidoModal({ onClose, onSaved }: Props) {
             </div>
           </div>
 
-          {/* Mini modal: Novo Cliente */}
-          {showNovoCliente && (
-            <div className="absolute inset-0 bg-black z-50 flex items-center justify-center p-4">
-              <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 w-full max-w-sm">
-                <div className="text-sm font-semibold theme-text mb-2">Novo Cliente</div>
-                <label className="text-xs text-zinc-400 block mb-2">ID
-                  <input className="mt-1 w-full rounded border theme-border bg-zinc-900/50 text-zinc-200 text-sm px-2 py-1.5" value={cliente.id} onChange={e=> setCliente(v=> ({...v, id: e.target.value.toUpperCase().slice(0,4)}))} />
-                </label>
-                <label className="text-xs text-zinc-400 block mb-3">Nick
-                  <input className="mt-1 w-full rounded border theme-border bg-zinc-900/50 text-zinc-200 text-sm px-2 py-1.5" value={cliente.nick} onChange={e=> setCliente(v=> ({...v, nick: e.target.value}))} />
-                </label>
-                <div className="flex items-center justify-end gap-2">
-                  <button className="px-3 py-1.5 rounded border theme-border text-zinc-300" onClick={()=> setShowNovoCliente(false)}>Fechar</button>
-                  <button className="px-3 py-1.5 rounded bg-emerald-600 text-white" onClick={()=> setShowNovoCliente(false)}>Salvar</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Lista de Clientes (simulada) */}
-          {showClientes && (
-            <div className="absolute inset-0 bg-black z-50 flex items-center justify-center p-4">
-              <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 w-full max-w-md max-h-[70vh] overflow-y-auto">
-                <div className="text-sm font-semibold theme-text mb-2">Clientes</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {['ALFA','BETA','GAMA','DELTA','ECHO','FOXT','GOLF','HOTEL'].map((id, idx) => (
-                    <button key={id} className="text-left p-2 rounded border theme-border hover:bg-zinc-800 text-zinc-200" onClick={()=> { setCliente({ id, nick: ['Lobo','Raposa','Tigre','Leão'][idx % 4] }); setShowClientes(false); }}>
-                      <div className="font-mono text-sm">{id}</div>
-                      <div className="text-xs text-zinc-400">{['Lobo','Raposa','Tigre','Leão'][idx % 4]}</div>
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center justify-end mt-3">
-                  <button className="px-3 py-1.5 rounded border theme-border text-zinc-300" onClick={()=> setShowClientes(false)}>Fechar</button>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Lista de Clientes (real) */}
+          <ClientesModal open={showClientes && clientesLoaded} onClose={()=> setShowClientes(false)} onSelect={(c)=> { setCliente({ id: c.id, nick: c.nick, estrelas: c.estrelas, gasto: c.gasto, simpatia: c.simpatia, compras: c.compras }); setShowClientes(false); }} />
+          <NovoClienteModal open={showNovoCliente} onClose={()=> setShowNovoCliente(false)} onCreated={(c)=> { setCliente({ id: c.uuid, nick: c.nick, estrelas: 0, gasto: 0, simpatia: 0, compras: 0 }); setShowNovoCliente(false); }} />
 
           {/* Step PIN */}
           {stepPin && (
             <div className="absolute inset-0 bg-black z-50 flex items-center justify-center p-4">
               <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 w-full max-w-sm">
-                <div className="text-sm font-semibold theme-text mb-3">Confirmar com PIN do funcionário</div>
+                <div className="text-sm font-semibold theme-text mb-1">Confirmar com PIN</div>
+                <div className="text-xs text-zinc-500 mb-3">Digite seu PIN de 4 dígitos para confirmar o pedido.</div>
                 <div className="flex items-center justify-center gap-3 mb-3">
                   {pin.map((d, idx) => (
-                    <input key={idx} type="password" aria-label={`Dígito ${idx+1} do PIN`} maxLength={1} inputMode="numeric" value={d} onChange={(e)=>{
-                      const v = e.target.value.replace(/\D/g,'').slice(0,1);
-                      const arr = [...pin]; arr[idx] = v; setPin(arr);
-                    }} className="w-12 h-12 text-2xl text-center rounded-lg border theme-border bg-zinc-800/60 text-white" />
+                    <input
+                      key={idx}
+                      ref={(el)=> { pinInputs.current[idx] = el; }}
+                      type="password"
+                      aria-label={`Dígito ${idx+1} do PIN`}
+                      maxLength={1}
+                      inputMode="numeric"
+                      value={d}
+                      onKeyDown={(e)=>{
+                        if (e.key === 'Backspace' && !pin[idx] && idx>0) {
+                          pinInputs.current[idx-1]?.focus();
+                        }
+                        if (e.key === 'Enter') checkPinAndConfirm();
+                      }}
+                      onChange={(e)=>{
+                        const v = e.target.value.replace(/\D/g,'').slice(0,1);
+                        const arr = [...pin]; arr[idx] = v; setPin(arr);
+                        if (v && idx < 3) pinInputs.current[idx+1]?.focus();
+                      }}
+                      className="w-12 h-12 text-2xl text-center rounded-lg border theme-border bg-zinc-800/60 text-white"
+                    />
                   ))}
                 </div>
                 {pinErr && <div className="text-center text-red-400 text-sm mb-2">{pinErr}</div>}

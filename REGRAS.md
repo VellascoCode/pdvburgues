@@ -92,3 +92,8 @@ Objetivo: garantir consistência, qualidade e velocidade sem quebrar o build.
 
 20) Logs
 - Login (100) e Logout (101) devem ser registrados em todas as origens (nav superior, sidebar, etc.). Demais ações administrativas com mensagens claras e IDs consistentes.
+
+21) Clean Code – funções com responsabilidade única
+- Funções devem fazer uma única coisa e fazê-la bem (SRP – Single Responsibility Principle). Evitar funções que validam, processam, persistem e notificam ao mesmo tempo.
+- Separar camadas/efeitos colaterais: validação, transformação e I/O (fetch/DB) devem ser funções/helpers distintos. Em APIs, extraia utilitários para `src/lib/**` quando houver reuso.
+- Aplicado inicialmente no Dashboard e APIs relacionadas a pedidos: cálculo de estatísticas em `src/utils/dashboardStats.ts` e utilitários de pedidos em `src/lib/pedidos.ts` (defaults, total e timestamps).

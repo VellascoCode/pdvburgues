@@ -49,45 +49,45 @@ export function playUiSound(type: UiSound) {
 
   if (type === 'hover') {
     osc.type = 'sine';
-    osc.frequency.value = 800; // sutil
-    gain.gain.setValueAtTime(0.02, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.004, ctx.currentTime + 0.06);
+    osc.frequency.value = 900; // sutil mais agudo
+    gain.gain.setValueAtTime(0.05, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.008, ctx.currentTime + 0.08);
     osc.start();
-    osc.stop(ctx.currentTime + 0.07);
+    osc.stop(ctx.currentTime + 0.09);
   } else if (type === 'click' || type === 'toggle') {
     osc.type = 'triangle';
-    osc.frequency.value = type === 'toggle' ? 300 : 220;
-    gain.gain.setValueAtTime(0.06, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.006, ctx.currentTime + 0.10);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.11);
-  } else if (type === 'open') {
-    osc.type = 'sine';
-    osc.frequency.value = 520;
-    gain.gain.setValueAtTime(0.05, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.005, ctx.currentTime + 0.15);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.16);
-  } else if (type === 'close') {
-    osc.type = 'sine';
-    osc.frequency.value = 340;
-    gain.gain.setValueAtTime(0.04, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.004, ctx.currentTime + 0.12);
+    osc.frequency.value = type === 'toggle' ? 340 : 240;
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.012, ctx.currentTime + 0.12);
     osc.start();
     osc.stop(ctx.currentTime + 0.13);
-  } else if (type === 'success') {
-    osc.type = 'square';
-    osc.frequency.value = 660;
-    gain.gain.setValueAtTime(0.08, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.18);
+  } else if (type === 'open') {
+    osc.type = 'sine';
+    osc.frequency.value = 560;
+    gain.gain.setValueAtTime(0.10, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.012, ctx.currentTime + 0.18);
     osc.start();
     osc.stop(ctx.currentTime + 0.2);
+  } else if (type === 'close') {
+    osc.type = 'sine';
+    osc.frequency.value = 360;
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.14);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } else if (type === 'success') {
+    osc.type = 'square';
+    osc.frequency.value = 700;
+    gain.gain.setValueAtTime(0.14, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.016, ctx.currentTime + 0.22);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.24);
   } else if (type === 'error') {
     osc.type = 'sawtooth';
-    osc.frequency.value = 160;
-    gain.gain.setValueAtTime(0.1, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+    osc.frequency.value = 180;
+    gain.gain.setValueAtTime(0.16, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.016, ctx.currentTime + 0.24);
     osc.start();
-    osc.stop(ctx.currentTime + 0.22);
+    osc.stop(ctx.currentTime + 0.26);
   }
 }

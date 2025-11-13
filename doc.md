@@ -342,6 +342,13 @@ Backend (MongoDB) e Seed
 - “Em andamento” e “Atrasados” agora aparecem como cartões de métrica no topo (grid 1/2/4 em mobile/tablet/desktop).
 - Botão “Esconder coluna” no cabeçalho; reexibição no menu superior (desktop) ou por botão flutuante (mobile). Colunas remanescentes se realinham automaticamente no grid.
 
+## Práticas de Clean Code (Projeto)
+- Funções com responsabilidade única: cada função deve executar uma única tarefa (SRP) para facilitar testes, manutenção e evolução.
+- Separe validação, transformação e I/O (fetch/DB) em funções/helpers distintos. Exemplo:
+  - Utilitários de pedidos (`src/lib/pedidos.ts`): geração de defaults (timestamps/status/código), cálculo de total e atualização de timestamps ao mudar status.
+  - Estatísticas do Dashboard (`src/utils/dashboardStats.ts`): cálculo de métricas derivadas dos pedidos (totais, itens, categorias rápidas), usado pelo painel.
+- Diretriz: quando uma função começa a “fazer de tudo”, extraia partes coesas para helpers nomeados; mantenha APIs/handlers finos que coordenam chamadas a esses helpers.
+
 Atualizações recentes (cards, colunas e página pública)
 - Cards: atrasos nunca aparecem em COMPLETO/CANCELADO. Em COMPLETO, exibimos chip verde com data/hora do completo; em CANCELADO, chip vermelho com data/hora do cancelamento.
 - Cliente no card: métrica no formato "número + ícone" (ex.: 4★ 3$ 5♥) e ícone de sacola com quantidade de compras. Mostramos também gênero, nick e ID curto.

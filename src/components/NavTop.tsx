@@ -3,31 +3,64 @@ import { useTheme } from '@/context/ThemeContext';
 import { playUiSound } from '@/utils/sound';
 import { useSession } from 'next-auth/react';
 import { APP_NAME } from '@/config/app';
-import { FaSearch, FaBell, FaEyeSlash, FaHamburger, FaCogs, FaSignOutAlt, FaUtensils, FaCashRegister, FaTachometerAlt } from 'react-icons/fa';
+import { FaBell, FaEyeSlash, FaHamburger, FaCogs, FaSignOutAlt, FaUtensils, FaTachometerAlt, FaShoppingCart, FaCashRegister, FaUsers, FaTimesCircle } from 'react-icons/fa';
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { emit } from '@/utils/eventBus';
 
 type Props = {
-  onSearch: (term: string) => void;
   hiddenCols: string[];
   onUnhide: (key: string) => void;
-  onNovoPedido: () => void;
 };
 
 import { signOut } from 'next-auth/react';
 
-export default function NavTop({ onSearch, hiddenCols, onUnhide, onNovoPedido }: Props) {
-  const [searchTerm, setSearchTerm] = useState('');
+export default function NavTop({ hiddenCols, onUnhide }: Props) {
   const [openCols, setOpenCols] = useState(false);
   const [openTheme, setOpenTheme] = useState(false);
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
-  const isAdmin = Boolean((session?.user as { type?: number } | undefined)?.type === 10);
-  const routerPath = typeof window !== 'undefined' ? location.pathname : '';
+  const access = (session?.user as { access?: string } | undefined)?.access;
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    async function loadUser() {
+      if (!access) { if (alive) setIsAdmin(false); return; }
+      try {
+        const r = await fetch(`/api/users/${access}`);
+        if (!r.ok) { if (alive) setIsAdmin(false); return; }
+        const j = await r.json() as { type?: number; status?: number };
+        if (alive) setIsAdmin(Boolean(j?.type === 10 && j?.status === 1));
+      } catch { if (alive) setIsAdmin(false); }
+    }
+    loadUser();
+    return () => { alive = false; };
+  }, [access]);
+  const router = useRouter();
+  const path = router.pathname;
+  const search = router.asPath.includes('?') ? router.asPath.slice(router.asPath.indexOf('?')) : '';
+  const [cashHidden, setCashHidden] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem('cashBarHidden') === '1'; } catch { return false; }
+  });
+  // status do caixa não exibido no topo no momento
+  useEffect(() => {
+    // reagir a eventos de sessão do caixa
+    const onShow = () => setCashHidden(false);
+    const onHide = () => setCashHidden(true);
+    const onRefresh = () => {
+      try { setCashHidden(localStorage.getItem('cashBarHidden')==='1'); } catch {}
+    };
+    emit('nav:ready');
+    window.setTimeout(onRefresh, 0);
+    import('@/utils/eventBus').then(({ on, off }) => { 
+      on('cash:show', onShow); on('cash:hide', onHide); on('cash:refresh', onRefresh); 
+      return () => { off('cash:show', onShow); off('cash:hide', onHide); off('cash:refresh', onRefresh); };
+    });
+  }, []);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-    onSearch(e.target.value);
-  };
+  // busca removida do dashboard
 
   return (
     <header className="bg-zinc-900/10 border-b border-zinc-800/50 sticky top-0 z-50 shadow-2xl theme-surface theme-border">
@@ -46,29 +79,9 @@ export default function NavTop({ onSearch, hiddenCols, onUnhide, onNovoPedido }:
             </div>
           </div>
 
-          <div className="flex-1 min-w-[220px] max-w-md">
-            <div className="relative">
-              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm" />
-              <input
-                type="text"
-                placeholder="Buscar pedido..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                aria-label="Buscar pedido"
-                className="w-full rounded-lg pl-10 pr-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-500 transition-all theme-surface theme-border border"
-              />
-            </div>
-          </div>
+          {/* Busca removida a pedido do cliente */}
 
           <div className="flex items-center gap-3 relative flex-wrap justify-end">
-            <button
-              className="px-3 py-2 rounded-lg bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-600/40 flex items-center gap-2"
-              onMouseEnter={() => playUiSound('hover')}
-              onClick={() => { playUiSound('click'); onNovoPedido(); }}
-              aria-label="Novo Pedido"
-            >
-              + Novo Pedido
-            </button>
             <button className="relative p-2.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-400 hover:text-zinc-200" onMouseEnter={() => playUiSound('hover')} onClick={() => playUiSound('click')}>
               <FaBell className="text-lg" />
               <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full text-white text-[10px] flex items-center justify-center font-bold">
@@ -76,19 +89,30 @@ export default function NavTop({ onSearch, hiddenCols, onUnhide, onNovoPedido }:
               </span>
             </button>
             {isAdmin && (
-              <Link href="/admin" title="Admin" className={`p-2.5 rounded-lg border ${routerPath.startsWith('/admin') ? 'border-orange-600 text-orange-300 bg-orange-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
+              <Link href="/admin" title="Admin" className={`p-2.5 rounded-lg border ${path.startsWith('/admin') ? 'border-orange-600 text-orange-300 bg-orange-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
                 <FaCogs className="text-lg" />
               </Link>
             )}
-            <Link href="/dashboard" title="Geral" className={`p-2.5 rounded-lg border ${routerPath==='/dashboard' ? 'border-emerald-600 text-emerald-300 bg-emerald-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
+            {/* Link direto para clientes removido do topo conforme solicitado */}
+            <button title="Pedidos Cancelados" className="p-2.5 rounded-lg border border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800" onMouseEnter={()=>playUiSound('hover')} onClick={()=> { playUiSound('click'); emit('dashboard:showCancelados'); }}>
+              <FaTimesCircle className="text-lg" />
+            </button>
+            <Link href="/dashboard" title="Geral" className={`p-2.5 rounded-lg border ${path==='/dashboard' && !search.includes('view=cozinha') ? 'border-emerald-600 text-emerald-300 bg-emerald-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
               <FaTachometerAlt className="text-lg" />
             </Link>
-            <Link href="/dashboard?view=cozinha" title="Cozinha" className={`p-2.5 rounded-lg border ${routerPath.startsWith('/cozinha') ? 'border-yellow-600 text-yellow-300 bg-yellow-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
+            <Link href="/dashboard?view=cozinha" title="Cozinha" className={`p-2.5 rounded-lg border ${path==='/dashboard' && search.includes('view=cozinha') ? 'border-yellow-600 text-yellow-300 bg-yellow-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
               <FaUtensils className="text-lg" />
             </Link>
-            <Link href="/admin/caixa" title="Caixa" className={`p-2.5 rounded-lg border ${routerPath.startsWith('/admin/caixa') ? 'border-sky-600 text-sky-300 bg-sky-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
-              <FaCashRegister className="text-lg" />
-            </Link>
+            {(path === '/dashboard') && cashHidden && (
+              <>
+                <button title="Novo Pedido" className="p-2.5 rounded-lg border border-emerald-600 text-emerald-300 bg-emerald-600/10 hover:bg-emerald-600/20" onMouseEnter={()=>playUiSound('hover')} onClick={()=> { playUiSound('click'); emit('dashboard:newPedido'); }}>
+                  <FaShoppingCart className="text-lg" />
+                </button>
+                <button title="Ver Sessão do Caixa" className="p-2.5 rounded-lg border border-sky-600 text-sky-300 bg-sky-600/10 hover:bg-sky-600/20" onMouseEnter={()=>playUiSound('hover')} onClick={()=> { playUiSound('click'); try { localStorage.removeItem('cashBarHidden'); } catch {}; setCashHidden(false); emit('cash:show'); }}>
+                  <FaCashRegister className="text-lg" />
+                </button>
+              </>
+            )}
           
            
             <button

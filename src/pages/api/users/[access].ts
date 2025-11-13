@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { getCurrentUser } from '@/lib/authz';
 import { verifyPin, hashPin } from '@/lib/security';
 import { writeLog } from '@/lib/logs';
 
@@ -38,11 +37,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === 'PUT') {
-    const session = await getServerSession(req, res, authOptions);
-    const s = session as unknown as { user?: { access?: string; type?: number } } | null;
-    const adminAccess = s?.user?.access;
-    const adminType = s?.user?.type;
-    if (!adminAccess || adminType !== 10) return res.status(401).json({ error: 'não autorizado' });
+    const me = await getCurrentUser(req, res);
+    const adminAccess = me?.access;
+    if (!adminAccess || me?.type !== 10 || me?.status !== 1) return res.status(401).json({ error: 'não autorizado' });
 
     const body = req.body as UpdatePayload;
     const adminPin = String(body.pin || '');
@@ -60,7 +57,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const now = new Date().toISOString();
     let didAny = false;
     let didPin = false;
-    let didAccessChange = false;
     const logs: Array<{ action: number; desc: string }> = [];
 
     // Atualização de campos básicos
@@ -91,15 +87,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       update.type = body.type; didAny = true; logs.push({ action: 301, desc: `Tipo alterado: ${target.type} -> ${body.type}` });
     }
     if (typeof body.status === 'number' && [0,1,2].includes(body.status) && body.status !== target.status) {
+      // Regra: admin não pode se auto-suspender
+      if (accessParam === adminAccess && body.status === 2) {
+        return res.status(400).json({ error: 'admin não pode se suspender' });
+      }
       update.status = body.status; didAny = true; logs.push({ action: 301, desc: `Status alterado: ${target.status} -> ${body.status}` });
     }
 
-    // Alteração de Access ID
-    if (typeof body.access === 'string' && /^\d{3}$/.test(body.access) && body.access !== target.access) {
-      const exists = await col.findOne({ access: body.access }, { projection: { _id: 1 } });
-      if (exists) return res.status(409).json({ error: 'access já existe' });
-      didAccessChange = true;
-    }
+    // Alteração de Access ID — bloqueada (ignorada se vier)
 
     // Alteração de PIN
     if (typeof body.newPin === 'string' && /^\d{4}$/.test(body.newPin)) {
@@ -138,27 +133,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       logs.push({ action: 303, desc: `Colunas autorizadas atualizadas (${cleaned.length})` });
     }
 
-    if (!didAny && !didAccessChange) return res.status(400).json({ error: 'nada para atualizar' });
+    if (!didAny) return res.status(400).json({ error: 'nada para atualizar' });
 
     update.updatedAt = now;
 
-    if (didAccessChange) {
-      // Atualiza access e demais campos em uma operação
-      const newAccess = String(body.access);
-      const r = await col.updateOne({ access: accessParam }, { $set: { ...update, access: newAccess, updatedAt: now } });
-      if (!r.matchedCount) return res.status(404).json({ error: 'not found' });
-      logs.push({ action: 301, desc: `Access alterado: ${accessParam} -> ${newAccess}` });
-    } else {
-      const r = await col.updateOne({ access: accessParam }, { $set: update });
-      if (!r.matchedCount) return res.status(404).json({ error: 'not found' });
-    }
+    // Atualização sem permitir alteração de access
+    const r = await col.updateOne({ access: accessParam }, { $set: update });
+    if (!r.matchedCount) return res.status(404).json({ error: 'not found' });
 
     // Logs
     if (didPin) logs.push({ action: 302, desc: `PIN redefinido para ${accessParam}` });
     if (logs.length === 0) logs.push({ action: 301, desc: `Usuário ${accessParam} atualizado` });
     for (const l of logs) { try { await writeLog({ access: adminAccess, action: l.action, desc: l.desc, ref: { userAccess: accessParam } }); } catch {} }
 
-    const updated = await col.findOne({ access: (didAccessChange ? String(body.access) : accessParam) }, { projection: { pinHash: 0 } });
+    const updated = await col.findOne({ access: accessParam }, { projection: { pinHash: 0 } });
     return res.status(200).json(updated);
   }
 

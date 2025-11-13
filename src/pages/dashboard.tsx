@@ -2,22 +2,28 @@ import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import React from "react";
-import { FaCheckCircle, FaMotorcycle, FaUtensils, FaClock, FaTimesCircle, FaHourglassHalf, FaShoppingBag, FaHamburger, FaCoffee, FaPlus, FaBan, FaEyeSlash, FaTimes } from "react-icons/fa";
+import { FaCheckCircle, FaMotorcycle, FaUtensils, FaClock, FaTimesCircle, FaHourglassHalf, FaEyeSlash, FaTimes, FaStar, FaShoppingBag } from "react-icons/fa";
 import type { IconType } from "react-icons";
 import { AnimatePresence } from "framer-motion";
 import type { Pedido } from "../utils/indexedDB";
 import NavTop from "@/components/NavTop";
+import CaixaSection from "@/components/CaixaSection";
+import HiddenColumnsPanel from "@/components/HiddenColumnsPanel";
 import PedidoCard from "../components/PedidoCard";
+import ConfirmModal from "@/components/ConfirmModal";
 import dynamic from "next/dynamic";
 const PedidoDetalhesModal = dynamic(() => import("../components/PedidoDetalhesModal"), { ssr: false });
+const PedidoCompletoModal = dynamic(() => import("../components/PedidoCompletoModal"), { ssr: false });
 import NovoPedidoModalComponent from "@/components/NovoPedidoModal";
-import { pedidoEstaAtrasado } from "../utils/pedidoTempo";
 import type { GetServerSideProps } from 'next';
 import type { Session } from 'next-auth';
 import { getServerSession } from 'next-auth';
 import { authOptions } from './api/auth/[...nextauth]';
 import { getDb } from '@/lib/mongodb';
 import { playUiSound } from "../utils/sound";
+import { on, off, emit } from '@/utils/eventBus';
+import { listPedidos, updatePedidoStatus } from '@/lib/pedidosClient';
+type CashResumo = { id: string; at: string; items: number; total: number; cliente?: string };
 
 const statusList: {
   key: string;
@@ -63,22 +69,7 @@ const statusList: {
   },
 ];
 
-function StatCard({ icon: Icon, label, value, color }: { icon: IconType, label: string, value: number, color: string }) {
-  return (
-    <div className={`backdrop-blur border ${color} rounded-xl p-4 hover:shadow-lg transition-all duration-300 theme-surface theme-border`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs text-zinc-500 mb-1">{label}</p>
-          <p className={`text-2xl font-bold ${color.replace('border-', 'text-')}`}>{value}</p>
-        </div>
-        <div className={`w-12 h-12 rounded-full ${color.replace('border-', 'bg-')}/10 border ${color} flex items-center justify-center`}>
-          <Icon className={`text-xl ${color.replace('border-', 'text-')}`} />
-        </div>
-      </div>
-    </div>
-  );
- 
-}
+// StatCard removido (não utilizado)
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const session = await getServerSession(ctx.req, ctx.res, authOptions);
@@ -97,9 +88,6 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   } catch {}
   return { props: {} };
 };
-// removed old Header: NavTop is the unified navigation
-
-// Old Header component removed (NavTop replaces it)
 
 function ModalCancelados({ isOpen, onClose, pedidos, onStatusChange, now }: { 
   isOpen: boolean; 
@@ -196,15 +184,17 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [clock, setClock] = useState<number | null>(null);
   // serverCount removido (seed desativado)
-  const [searchTerm, setSearchTerm] = useState("");
+  // busca removida
   const [showCancelados, setShowCancelados] = useState(false);
   const [hiddenCols, setHiddenCols] = useState<string[]>([]);
-  const [activeStatus, setActiveStatus] = useState<string[]>([]);
-  const [onlyAtrasados, setOnlyAtrasados] = useState(false);
   const [detalheId, setDetalheId] = useState<string | null>(null);
-  const [showMobileCols, setShowMobileCols] = useState(false);
+  const [completoId, setCompletoId] = useState<string | null>(null);
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  // exibição mobile de colunas: função movida para painel lateral
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [showNovo, setShowNovo] = useState(false);
+  const [cashCompletos, setCashCompletos] = useState<CashResumo[]>([]);
+  const [topToast, setTopToast] = useState<{ msg: string; type: 'info'|'warn'|'ok' } | null>(null);
   
   const { status } = useSession({
     required: true,
@@ -220,13 +210,14 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // Caixa: seção foi extraída para componente próprio (ver CaixaSection)
+
   async function reloadFromServer() {
     setLoading(true);
     try {
-      const resp = await fetch('/api/pedidos');
-      const lista = resp.ok ? await resp.json() : [];
-      setPedidos(lista);
+      setPedidos(await listPedidos());
       // serverCount removed
+      emit('cash:refresh');
     } catch {
       setPedidos([]);
       // serverCount removed
@@ -238,129 +229,88 @@ export default function Dashboard() {
     reloadFromServer();
   }, [status]);
 
+  // Carregar "completos" do caixa atual
+  async function loadCompletos() {
+    try {
+      const r = await fetch('/api/caixa');
+      if (!r.ok) { setCashCompletos([]); return; }
+      const data = await r.json();
+      const arr: CashResumo[] = Array.isArray(data?.session?.completos) ? data.session.completos : [];
+      setCashCompletos(arr);
+    } catch { setCashCompletos([]); }
+  }
+  useEffect(() => { loadCompletos(); }, []);
+  useEffect(() => { on('cash:refresh', loadCompletos); return () => off('cash:refresh', loadCompletos); }, []);
+  // Ouvir abrir modal de cancelados a partir do topo/nav
+  useEffect(() => {
+    const openCancelados = () => setShowCancelados(true);
+    on('dashboard:showCancelados', openCancelados);
+    return () => off('dashboard:showCancelados', openCancelados);
+  }, []);
+
+  // Ouvir botão "Novo Pedido" emitido pela CaixaSection
+  useEffect(() => {
+    const h = async () => {
+      try {
+        const r = await fetch('/api/caixa');
+        const j = r.ok ? await r.json() as { status?: 'FECHADO'|'ABERTO'|'PAUSADO' } : { status: 'FECHADO' as const };
+        if (j.status !== 'ABERTO') {
+          setTopToast({ msg: j.status === 'PAUSADO' ? 'Caixa pausado — retome para criar pedidos.' : 'Caixa fechado — abra o caixa para criar pedidos.', type: 'warn' });
+          setTimeout(() => setTopToast(null), 2500);
+          return;
+        }
+      } catch {
+        setTopToast({ msg: 'Não foi possível verificar o caixa.', type: 'warn' });
+        setTimeout(() => setTopToast(null), 2500);
+        return;
+      }
+      setShowNovo(true);
+    };
+    on('dashboard:newPedido', h);
+    return () => off('dashboard:newPedido', h);
+  }, []);
+
   // Removido: listeners de online/offline e sincronização IndexedDB
 
   const handleStatus = async (id: string, novoStatus: string) => {
-    try { await fetch(`/api/pedidos/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: novoStatus }) }); } catch {}
+    await updatePedidoStatus(id, novoStatus);
+    emit('cash:refresh');
     await reloadFromServer();
   };
 
-  const filteredPedidos = useMemo(() => {
-    if (!searchTerm) return pedidos;
-    const term = searchTerm.toLowerCase();
-    return pedidos.filter(p => p.id.toLowerCase().includes(term));
-  }, [pedidos, searchTerm]);
-
   // Filtra pedidos que não são cancelados para as colunas
-  const pedidosAtivos = useMemo(() => filteredPedidos.filter(p => p.status !== 'CANCELADO'), [filteredPedidos]);
-  const pedidosCancelados = useMemo(() => filteredPedidos.filter(p => p.status === 'CANCELADO'), [filteredPedidos]);
+  const pedidosAtivos = useMemo(() => pedidos.filter(p => p.status !== 'CANCELADO'), [pedidos]);
+  const pedidosCancelados = useMemo(() => pedidos.filter(p => p.status === 'CANCELADO'), [pedidos]);
 
   // Estatísticas (conta todos, incluindo cancelados)
-  const { totalPedidos, totalItens, sanduiches, bebidas, extras, cancelados, vendidos, emAndamento } = useMemo(() => {
-    let totalItens = 0, sanduiches = 0, bebidas = 0, extras = 0, cancelados = 0, vendidos = 0, emAndamento = 0;
-    for (const p of filteredPedidos) {
-      const itens = p.itens || [];
-      for (const item of itens) {
-        if (typeof item === 'string') { totalItens += 1; continue; }
-        const qty = item.quantidade || 1; totalItens += qty;
-        const nome = (item.nome || '').toLowerCase();
-        if (nome.includes('burger') || nome.includes('x-')) sanduiches += qty;
-        else if (nome.includes('coca') || nome.includes('suco') || nome.includes('água') || nome.includes('agua') || nome.includes('shake') || nome.includes('refrigerante') || nome.includes('guaran')) bebidas += qty;
-        else if (nome.includes('batata') || nome.includes('onion') || nome.includes('rings')) extras += qty;
-      }
-      if (p.status === 'CANCELADO') cancelados++;
-      if (p.status === 'COMPLETO') vendidos++;
-      if (p.status === 'EM_AGUARDO' || p.status === 'EM_PREPARO' || p.status === 'PRONTO' || p.status === 'EM_ROTA') emAndamento++;
-    }
-    return { totalPedidos: filteredPedidos.length, totalItens, sanduiches, bebidas, extras, cancelados, vendidos, emAndamento };
-  }, [filteredPedidos]);
+  // Estatísticas globais removidas daqui (não utilizadas)
 
   return (
     <div className="min-h-screen app-gradient-bg relative">
+      {/* Toast superior direito */}
+      {topToast && (
+        <div className={`fixed right-4 top-20 z-50 px-3 py-2 rounded-lg text-sm border ${topToast.type==='ok' ? 'bg-emerald-600/15 text-emerald-300 border-emerald-600/40' : topToast.type==='warn' ? 'bg-yellow-600/15 text-yellow-300 border-yellow-600/40' : 'bg-zinc-700/30 text-zinc-300 border-zinc-600'}`}>{topToast.msg}</div>
+      )}
       <NavTop
-        onSearch={setSearchTerm}
         hiddenCols={hiddenCols}
         onUnhide={(key: string)=> setHiddenCols(prev=> prev.filter(k=>k!==key))}
-        onNovoPedido={() => setShowNovo(true)}
       />
       {/* Removido: banner de status offline/online */}
       
       <main className="p-4 sm:p-5 md:p-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
-          <StatCard icon={FaShoppingBag} label="Pedidos Totais" value={totalPedidos} color="border-purple-500" />
-          <StatCard icon={FaPlus} label="Itens Totais" value={totalItens} color="border-blue-500" />
-          <StatCard icon={FaHamburger} label="Sanduíches" value={sanduiches} color="border-orange-500" />
-          <StatCard icon={FaCoffee} label="Bebidas" value={bebidas} color="border-cyan-500" />
-          <StatCard icon={FaUtensils} label="Extras" value={extras} color="border-yellow-500" />
-          <button 
-            onClick={() => setShowCancelados(true)}
-            className="bg-zinc-900/10 backdrop-blur border border-red-500 rounded-xl p-4 hover:shadow-lg hover:bg-red-500/5 transition-all duration-300 cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-zinc-500 mb-1">Cancelados</p>
-                <p className="text-2xl font-bold text-red-500">{cancelados}</p>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500 flex items-center justify-center">
-                <FaBan className="text-xl text-red-500" />
-              </div>
-            </div>
-          </button>
-          <StatCard icon={FaCheckCircle} label="Vendidos" value={vendidos} color="border-green-500" />
-          <StatCard icon={FaClock} label="Em Andamento" value={emAndamento} color="border-orange-500" />
-        </div>
+        <CaixaSection />
 
-        {/* Chips de Filtro Rápido */}
-        <div className="mb-6 flex flex-wrap items-center gap-2 justify-center">
-          <button
-            className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition ${activeStatus.length === 0 && !onlyAtrasados ? 'bg-zinc-800 text-zinc-200 border-zinc-600' : 'bg-transparent text-zinc-400 border-zinc-700 hover:text-zinc-200'}`}
-            onMouseEnter={() => playUiSound('hover')}
-            onClick={() => { playUiSound('click'); setActiveStatus([]); setOnlyAtrasados(false); }}
-          >
-            Todos
-          </button>
-          {statusList.map(st => {
-            const selected = activeStatus.includes(st.key);
-            const count = pedidosAtivos.filter(p => p.status === st.key).length;
-            return (
-              <button
-                key={st.key}
-                className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition ${selected ? 'bg-zinc-800 text-zinc-100 border-zinc-500' : 'bg-transparent text-zinc-400 border-zinc-700 hover:text-zinc-200'}`}
-                onMouseEnter={() => playUiSound('hover')}
-                onClick={() => {
-                  playUiSound('click');
-                  setActiveStatus(prev => prev.includes(st.key) ? prev.filter(k => k !== st.key) : [...prev, st.key]);
-                }}
-                title={st.subtitle}
-              >
-                {st.label} ({count})
-              </button>
-            );
-          })}
-          {(() => {
-            const atrasadosCount = clock ? pedidosAtivos.filter(p => pedidoEstaAtrasado(p, clock) && p.status !== 'COMPLETO').length : 0;
-            return (
-              <button
-                className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition ${onlyAtrasados ? 'bg-red-600/20 text-red-300 border-red-500 animate-pulse' : 'bg-transparent text-zinc-400 border-zinc-700 hover:text-zinc-200'}`}
-                onMouseEnter={() => playUiSound('hover')}
-                onClick={() => { playUiSound('click'); setOnlyAtrasados(v => !v); }}
-              >
-                Atrasados ({atrasadosCount})
-              </button>
-            );
-          })()}
-        </div>
+        {/* CaixaSection inclui seu próprio PinModal e ReportModal */}
+        {/* Cards globais removidos; CaixaSection exibe métricas essenciais */}
+
+        {/* Filtros rápidos removidos a pedido do cliente */}
 
         {/* Columns */}
         <div className="grid gap-3 sm:gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-          {statusList.map(statusItem => {
+          {statusList.filter(si => si.key !== 'COMPLETO').map(statusItem => {
             if (hiddenCols.includes(statusItem.key)) return null;
-            if (activeStatus.length > 0 && !activeStatus.includes(statusItem.key)) return null;
             const Icon = statusItem.icon;
             const pedidosCol = pedidosAtivos.filter(p => p.status === statusItem.key);
-            const atrasados = clock === null ? [] : pedidosCol.filter(p => pedidoEstaAtrasado(p, clock));
-            const pedidosColFiltrados = onlyAtrasados && statusItem.key !== 'COMPLETO' ? atrasados : pedidosCol;
             
             const statusColors: Record<string, string> = {
               EM_AGUARDO: "bg-gray-500/10 border-gray-500 text-gray-400",
@@ -412,20 +362,13 @@ export default function Dashboard() {
                       </button>
                       <div className={`w-9 h-9 rounded-full ${bgClass} border ${borderClass} flex items-center justify-center shadow-lg`}>
                         <span className={`text-sm font-bold ${textClass}`}>
-                          {pedidosColFiltrados.length}
+                          {pedidosCol.length}
                         </span>
                       </div>
                     </div>
                   </div>
                   
-                  {statusItem.key !== 'COMPLETO' && atrasados.length > 0 && (
-                    <div className="mt-2 bg-red-500/20 border border-red-500 rounded-lg px-3 py-1.5 flex items-center justify-center gap-2">
-                      <FaClock className="text-red-400 text-xs" />
-                      <span className="text-xs font-semibold text-red-400">
-                        {atrasados.length} {atrasados.length === 1 ? 'atraso' : 'atrasos'}
-                      </span>
-                    </div>
-                  )}
+                  {/* Indicador de atrasados removido */}
                 </div>
 
                 {/* Orders */}
@@ -446,13 +389,14 @@ export default function Dashboard() {
                       <p className="text-sm">Nenhum pedido</p>
                     </div>
                   ) : (
-                    pedidosColFiltrados.map((pedido) => (
+                    pedidosCol.map((pedido) => (
                       <PedidoCard
                         key={pedido.id}
                         pedido={pedido}
                         status={statusItem.key}
                         now={clock ?? 0}
                         onStatusChange={handleStatus}
+                        onAskCancel={(id)=> setCancelId(id)}
                         onOpenDetails={(p)=> setDetalheId(p.id)}
                       />
                     ))
@@ -461,66 +405,87 @@ export default function Dashboard() {
               </div>
             );
           })}
+          {/* Coluna COMPLETO (via caixa.completos[]) */}
+          <div className="flex flex-col">
+            <div className={`bg-green-500/10 border border-green-500 rounded-xl p-4 mb-4 sticky top-[89px] z-10 backdrop-blur-xl shadow-lg`}>
+              <div className="pointer-events-none absolute inset-0 opacity-10 bg-[radial-gradient(1000px_200px_at_-10%_-20%,#ffffff,transparent_60%)]" />
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl bg-green-500/10 border border-green-500 flex items-center justify-center shadow-lg`}>
+                    <FaCheckCircle className={`text-green-500 text-lg`} />
+                  </div>
+                  <div>
+                    <h2 className={`font-bold text-base text-green-500`}>Completo</h2>
+                    <p className="text-xs text-zinc-500">Pedidos entregues</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-9 h-9 rounded-full bg-green-500/10 border border-green-500 flex items-center justify-center shadow-lg`}>
+                    <span className={`text-sm font-bold text-green-500`}>{cashCompletos.length}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className={`space-y-2 overflow-y-auto overscroll-contain max-h-[calc(100vh-320px)] pr-0 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-green-500/70 hover:scrollbar-thumb-green-400`}>
+              {loading ? (
+                <div className="text-center py-12 text-zinc-600">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-3"></div>
+                  <p className="text-sm">Carregando...</p>
+                </div>
+              ) : cashCompletos.length === 0 ? (
+                <div className="text-center py-12 text-zinc-600">
+                  <FaCheckCircle className="text-3xl mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Nenhum pedido completo</p>
+                </div>
+              ) : (
+                cashCompletos.map((c) => (
+                  <button
+                    key={`${c.id}-${c.at}`}
+                    className="w-full text-left flex items-center justify-between gap-3 rounded-xl border border-green-600 bg-green-500/10 hover:bg-green-500/15 transition-all p-3 shadow-lg shadow-green-900/20"
+                    onClick={() => setCompletoId(c.id)}
+                    title="Ver detalhes"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] text-green-300/80">{new Date(c.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      <div className="text-sm font-semibold text-green-200 truncate">{c.id}</div>
+                      <div className="text-xs text-green-300/80 truncate">{c.cliente || '-'}</div>
+                      {Array.isArray((c as any).cls) && (
+                        <div className="mt-1 grid grid-cols-3 gap-1 text-[11px] text-green-300/80">
+                          <div className="inline-flex items-center gap-1"><FaShoppingBag className="opacity-80" /> x{Number((c as any).cls[0]||0)}</div>
+                          <div className="inline-flex items-center gap-1"><FaStar className="opacity-80" /> x{Number((c as any).cls[1]||0)}</div>
+                          <div className="inline-flex items-center gap-1"><FaMotorcycle className="opacity-80" /> x{Number((c as any).cls[2]||0)}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-green-200/90">{c.items} itens</div>
+                      <div className="text-sm font-bold text-emerald-300">R$ {Number(c.total || 0).toFixed(2)}</div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </main>
 
-      {/* Reabrir colunas ocultas */}
-      {hiddenCols.length > 0 && (
-        <div className="fixed left-2 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2">
-          {hiddenCols.map((key) => {
-            const meta = statusList.find(s => s.key === key);
-            if (!meta) return null;
-            const mapBg: Record<string, string> = {
-              EM_AGUARDO: 'bg-gray-500/20 text-gray-300 border-gray-500',
-              EM_PREPARO: 'bg-orange-500/20 text-orange-300 border-orange-500',
-              PRONTO: 'bg-yellow-500/20 text-yellow-300 border-yellow-500',
-              EM_ROTA: 'bg-blue-500/20 text-blue-300 border-blue-500',
-              COMPLETO: 'bg-green-500/20 text-green-300 border-green-500',
-            };
-            const colorCls = mapBg[key] ?? 'bg-zinc-700/20 text-zinc-300 border-zinc-600';
-            return (
-              <button
-                key={key}
-                className={`px-3 py-2 rounded-lg border ${colorCls} shadow hover:opacity-90 transition text-xs font-semibold`}
-                onMouseEnter={() => playUiSound('hover')}
-                onClick={() => { playUiSound('click'); setHiddenCols(prev => prev.filter(k => k !== key)); }}
-                title={`Mostrar ${meta.label}`}
-              >
-                Mostrar {meta.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Confirmar cancelamento (global, evita flicker em cards) */}
+      <ConfirmModal
+        open={cancelId !== null}
+        title="Cancelar pedido?"
+        message="Esta ação reverte os lançamentos do pedido na sessão do caixa."
+        confirmText="Sim, cancelar"
+        cancelText="Não"
+        onConfirm={async ()=>{ const id = cancelId!; setCancelId(null); await handleStatus(id, 'CANCELADO'); }}
+        onClose={()=> setCancelId(null)}
+      />
 
-      {/* Mobile: botão flutuante para reabrir colunas */}
-      {hiddenCols.length > 0 && (
-        <div className="sm:hidden fixed bottom-4 right-4 z-40">
-          <button
-            className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-700 text-zinc-100 shadow-lg flex items-center justify-center"
-            onMouseEnter={() => playUiSound('hover')}
-            onClick={() => { playUiSound('click'); setShowMobileCols(v=>!v); }}
-            title="Colunas ocultas"
-          >
-            <FaEyeSlash />
-          </button>
-          {showMobileCols && (
-            <div className="absolute right-0 bottom-14 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl p-2 min-w-[220px]">
-              <div className="text-xs text-zinc-500 px-2 pb-1">Reexibir colunas</div>
-              {hiddenCols.map(key => (
-                <button
-                  key={key}
-                  className="w-full text-left text-sm text-zinc-200 hover:bg-zinc-800 rounded-lg px-2 py-1.5"
-                  onMouseEnter={() => playUiSound('hover')}
-                  onClick={() => { playUiSound('click'); setHiddenCols(prev => prev.filter(k => k !== key)); setShowMobileCols(false); }}
-                >
-                  Mostrar {statusList.find(s=>s.key===key)?.label || key}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Reabrir colunas ocultas */}
+      <HiddenColumnsPanel
+        hiddenCols={hiddenCols}
+        statusList={statusList.map(s => ({ key: s.key, label: s.label }))}
+        onUnhide={(key) => setHiddenCols(prev => prev.filter(k => k !== key))}
+      />
 
       {/* Modal de Cancelados */}
       <ModalCancelados 
@@ -538,9 +503,12 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      {/* Modal de Detalhes (carregado e montado somente quando aberto) */}
+      {/* Modais (carregados e montados somente quando abertos) */}
       {Boolean(detalheId) && (
         <PedidoDetalhesModal open={true} id={detalheId} onClose={() => setDetalheId(null)} />
+      )}
+      {Boolean(completoId) && (
+        <PedidoCompletoModal open={true} id={completoId} onClose={() => setCompletoId(null)} />
       )}
 
   

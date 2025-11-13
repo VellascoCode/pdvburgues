@@ -11,9 +11,10 @@ interface PedidoCardProps {
   onStatusChange: (id: string, novoStatus: string) => void;
   now: number;
   onOpenDetails?: (pedido: Pedido) => void;
+  onAskCancel?: (id: string) => void;
 }
 
-export default function PedidoCard({ pedido, status, now, onStatusChange, onOpenDetails }: PedidoCardProps) {
+export default function PedidoCard({ pedido, status, now, onStatusChange, onOpenDetails, onAskCancel }: PedidoCardProps) {
   const tempoMs = calcularTempoDoPedido(pedido, now);
   const tempoFormatado =
     tempoMs !== null ? formatarDuracao(tempoMs) : pedido.tempo ?? "00:00";
@@ -32,17 +33,39 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
   }>;
   
   const totalItens = itensObjs.reduce((acc, it) => acc + (it.quantidade || 1), 0);
-  const totalValor = itensObjs.reduce((acc, it) => {
+  const totalValorItens = itensObjs.reduce((acc, it) => {
     const precoNum = typeof it.preco === "number" ? it.preco : it.preco ? parseFloat(String(it.preco).toString().replace(/[^0-9.,]/g, '').replace(',', '.')) : 0;
     return acc + precoNum * (it.quantidade || 1);
   }, 0);
+  const parseCurrency = (v: unknown): number => {
+    if (typeof v === 'number') return isFinite(v) ? v : 0;
+    if (typeof v === 'string' && v.trim()) {
+      const n = parseFloat(v.replace(/[^0-9.,]/g, '').replace(',', '.'));
+      return isFinite(n) ? n : 0;
+    }
+    return 0;
+  };
+  let taxaEntrega = parseCurrency(pedido.taxaEntrega as unknown);
+  if (Math.abs(taxaEntrega) < 0.005) taxaEntrega = 0; // evita 0.01 por arredondamento
   
   // Gera avatar baseado no ID
   const avatar = (pedido.id?.[0] || "#").toUpperCase() + (pedido.id?.[1] || "").toUpperCase();
   
   const nomeCliente = `Pedido #${pedido.id}`;
-  // PIN universal temporário
-  const pinCode = '1111';
+  const askCancel = () => {
+    if (onAskCancel) return onAskCancel(pedido.id);
+    return onStatusChange(pedido.id, 'CANCELADO');
+  };
+  const eventoAtivo = (() => {
+    const id = pedido.cliente?.id || '';
+    if (id === 'BALC') return null;
+    const awards = pedido.awards as Array<{ ev?: string; v?: number }> | undefined;
+    if (Array.isArray(awards) && awards.length && (Number(awards[0]?.v || 0) > 0)) return awards[0]?.ev || 'evento';
+    const fid = pedido.fidelidade as { enabled?: boolean; evento?: string } | undefined;
+    if (fid?.enabled && fid.evento) return fid.evento;
+    return null;
+  })();
+  // PIN exibido apenas no modal de detalhes (não no card)
 
   const itemIcon = (nome: string, iconKey?: string) => {
     const key = (iconKey || nome).toLowerCase();
@@ -111,13 +134,7 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
             </div>
           )}
         </div>
-        {/* PIN badge */}
-        <div className="mt-2">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800/60 border border-zinc-700 text-[11px] text-zinc-300 font-mono">
-            PIN
-            <span className="text-white font-bold">{pinCode}</span>
-          </span>
-        </div>
+        {/* PIN oculto no card (apenas no modal de detalhes) */}
         {/* Cliente */}
         {pedido.cliente && (
           <div className="flex items-center gap-2 text-xs text-zinc-300 mt-1">
@@ -126,18 +143,17 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
               : <FaGenderless className="text-zinc-400" />}
             <span className="font-semibold">{pedido.cliente.nick}</span>
             <span className="text-zinc-500">•</span>
-            <span className="font-mono text-zinc-400">{pedido.cliente.id}</span>
-            <span className="text-zinc-500">•</span>
+            {/* Código/UUID oculto na coluna (exibido em detalhes apenas) */}
             <span className="flex items-center gap-1">
-              <span className="font-mono text-yellow-400">{Math.min(5, Math.max(1, pedido.cliente.estrelas ?? 3))}</span>
+              <span className="font-mono text-yellow-400">{(() => { const v = pedido.cliente?.estrelas; return v === undefined ? 0 : Math.max(0, Math.min(5, v)); })()}</span>
               <FaStar className="text-yellow-400" />
             </span>
             <span className="flex items-center gap-1">
-              <span className="font-mono text-emerald-400">{Math.min(5, Math.max(1, pedido.cliente.gasto ?? 3))}</span>
+              <span className="font-mono text-emerald-400">{(() => { const v = pedido.cliente?.gasto; return v === undefined ? 0 : Math.max(0, Math.min(5, v)); })()}</span>
               <FaDollarSign className="text-emerald-400" />
             </span>
             <span className="flex items-center gap-1">
-              <span className="font-mono text-rose-400">{Math.min(5, Math.max(1, pedido.cliente.simpatia ?? 3))}</span>
+              <span className="font-mono text-rose-400">{(() => { const v = pedido.cliente?.simpatia; return v === undefined ? 0 : Math.max(0, Math.min(5, v)); })()}</span>
               <FaHeart className="text-rose-400" />
             </span>
             <span className="flex items-center gap-1">
@@ -149,6 +165,14 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
               })()}</span>
               <FaShoppingBag className="text-zinc-300" />
             </span>
+            {eventoAtivo && (
+              <>
+                <span className="text-zinc-500">•</span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-emerald-600/40 bg-emerald-600/10 text-emerald-300">
+                  +1 <FaStar className="text-[10px]" /> {eventoAtivo}
+                </span>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -211,11 +235,16 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
                 <span className="font-semibold text-zinc-400">Entrega:</span> {pedido.entrega}
               </div>
             )}
+            {taxaEntrega > 0 && (
+              <div className="text-xs text-zinc-500">
+                <span className="font-semibold text-zinc-400">Taxa:</span> R$ {taxaEntrega.toFixed(2)}
+              </div>
+            )}
           </div>
           <div className="text-right">
             <div className="text-xs text-zinc-500 mb-1">{totalItens} {totalItens === 1 ? 'item' : 'itens'}</div>
             <div className={`text-lg font-bold ${colors.text}`}>
-              R$ {totalValor.toFixed(2)}
+              R$ {(totalValorItens + taxaEntrega).toFixed(2)}
             </div>
           </div>
         </div>
@@ -233,16 +262,18 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
             Detalhes
           </button>
         )}
-        <button
-          className="py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-transparent border border-zinc-600/60 text-zinc-300 hover:bg-zinc-800/60 flex items-center justify-center gap-2"
-          draggable={false}
-          onMouseEnter={() => playUiSound('hover')}
-          onClick={() => { playUiSound('click'); if (typeof window !== 'undefined') { window.open(`/pedido/${pedido.id}`, '_blank', 'noopener,noreferrer'); }}}
-          title="Abrir página pública do pedido"
-        >
-          <FaLink className="text-sm" />
-          Pedido Link
-        </button>
+        {status !== 'CANCELADO' && (
+          <button
+            className="py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-transparent border border-zinc-600/60 text-zinc-300 hover:bg-zinc-800/60 flex items-center justify-center gap-2"
+            draggable={false}
+            onMouseEnter={() => playUiSound('hover')}
+            onClick={() => { playUiSound('click'); if (typeof window !== 'undefined') { window.open(`/pedido/${pedido.id}`, '_blank', 'noopener,noreferrer'); }}}
+            title="Abrir página pública do pedido"
+          >
+            <FaLink className="text-sm" />
+            Pedido Link
+          </button>
+        )}
         {status === "EM_AGUARDO" && (
           <>
             <button
@@ -258,7 +289,7 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
               className="flex-1 py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-transparent border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 flex items-center justify-center gap-2"
               draggable={false}
               onMouseEnter={() => playUiSound('hover')}
-              onClick={() => { playUiSound('click'); onStatusChange(pedido.id, "CANCELADO"); }}
+              onClick={() => { playUiSound('click'); askCancel(); }}
             >
               <FaTimes className="text-sm" />
               Cancelar
@@ -280,7 +311,7 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
               className="flex-1 py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-transparent border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-500 flex items-center justify-center gap-2"
               draggable={false}
               onMouseEnter={() => playUiSound('hover')}
-              onClick={() => { playUiSound('click'); onStatusChange(pedido.id, "CANCELADO"); }}
+              onClick={() => { playUiSound('click'); askCancel(); }}
             >
               <FaTimes className="text-sm" />
               Cancelar
@@ -324,13 +355,15 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
           <button
             className="col-span-2 py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-red-600/20 text-red-300 border border-red-500 animate-pulse flex items-center justify-center gap-2"
             onMouseEnter={() => playUiSound('hover')}
-            onClick={() => { playUiSound('click'); onStatusChange(pedido.id, 'CANCELADO'); }}
+            onClick={() => { playUiSound('click'); askCancel(); }}
           >
             Muito atrasado, cancelar?
           </button>
         )}
       </div>
       </div>
+
+      {/* Modal de confirmação removido do card para evitar flicker; agora controlado pelo container */}
     </motion.div>
   );
 }

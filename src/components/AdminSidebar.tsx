@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { FaChartBar, FaBoxOpen, FaCashRegister, FaListUl, FaUsers, FaCog, FaSignOutAlt, FaTachometerAlt, FaColumns } from 'react-icons/fa';
+import { FaChartBar, FaBoxOpen, FaCashRegister, FaListUl, FaUsers, FaCog, FaSignOutAlt, FaTachometerAlt, FaColumns, FaStar } from 'react-icons/fa';
 import { useSession } from 'next-auth/react';
 import { signOut } from 'next-auth/react';
 import { playUiSound } from '@/utils/sound';
@@ -13,9 +13,11 @@ const defaultItems: Item[] = [
   { href: '/admin/produtos', key: 'produtos', label: 'Produtos', icon: FaBoxOpen },
   { href: '/admin/caixa', key: 'caixa', label: 'Caixa', icon: FaCashRegister },
   { href: '/admin/logs', key: 'logs', label: 'Logs', icon: FaListUl },
+  { href: '/admin/feedback', key: 'feedback', label: 'Feedback', icon: FaStar },
   { href: '/admin/configuracoes', key: 'config', label: 'Configurações', icon: FaCog },
   { href: '/admin/colunas', key: 'colunas', label: 'Colunas', icon: FaColumns },
   { href: '/admin/usuarios', key: 'usuarios', label: 'Usuários', icon: FaUsers },
+  { href: '/admin/eventos', key: 'eventos', label: 'Eventos', icon: FaListUl },
 ];
 
 export default function AdminSidebar({ active, items = defaultItems, open, onClose }: { active?: string; items?: Item[]; open?: boolean; onClose?: () => void }) {

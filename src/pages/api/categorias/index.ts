@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { getCurrentUser } from '@/lib/authz';
 import { writeLog } from '@/lib/logs';
 import { verifyPin } from '@/lib/security';
 
@@ -40,11 +39,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ items, total, page, pageSize });
   }
   if (req.method === 'POST') {
-    const session = await getServerSession(req, res, authOptions);
-    const s = session as unknown as { user?: { access?: string; type?: number } } | null;
-    const access = s?.user?.access;
-    const type = s?.user?.type;
-    if (!access || type !== 10) return res.status(401).json({ error: 'não autorizado' });
+    const me = await getCurrentUser(req, res);
+    const access = me?.access;
+    if (!access || me?.type !== 10 || me?.status !== 1) return res.status(401).json({ error: 'não autorizado' });
     const { key, label, iconKey, cor, bg, active = true, pin } = req.body || {};
     if (!key || !/^[a-z0-9-]{2,20}$/.test(key)) return res.status(400).json({ error: 'key inválida' });
     if (!label || typeof label !== 'string') return res.status(400).json({ error: 'label inválido' });

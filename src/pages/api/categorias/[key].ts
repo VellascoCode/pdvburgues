@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { getCurrentUser } from '@/lib/authz';
 import { verifyPin } from '@/lib/security';
 import { writeLog } from '@/lib/logs';
 
@@ -13,11 +12,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const db = await getDb();
   const col = db.collection<CategoriaDoc>('categories');
   if (req.method === 'PUT') {
-    const session = await getServerSession(req, res, authOptions);
-    const s = session as unknown as { user?: { access?: string; type?: number } } | null;
-    const access = s?.user?.access;
-    const type = s?.user?.type;
-    if (!access || type !== 10) return res.status(401).json({ error: 'não autorizado' });
+    const me = await getCurrentUser(req, res);
+    const access = me?.access;
+    if (!access || me?.type !== 10 || me?.status !== 1) return res.status(401).json({ error: 'não autorizado' });
     const body = req.body || {};
     const pin = String(body.pin || '');
     const userDoc = await db.collection<DbUser>('users').findOne({ access });
@@ -38,11 +35,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json(doc);
   }
   if (req.method === 'DELETE') {
-    const session = await getServerSession(req, res, authOptions);
-    const s = session as unknown as { user?: { access?: string; type?: number } } | null;
-    const access = s?.user?.access;
-    const type = s?.user?.type;
-    if (!access || type !== 10) return res.status(401).json({ error: 'não autorizado' });
+    const me = await getCurrentUser(req, res);
+    const access = me?.access;
+    if (!access || me?.type !== 10 || me?.status !== 1) return res.status(401).json({ error: 'não autorizado' });
     const pin = String((req.body && req.body.pin) || '');
     const userDoc = await db.collection<DbUser>('users').findOne({ access });
     if (!userDoc) return res.status(403).json({ error: 'PIN inválido' });

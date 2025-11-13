@@ -33,7 +33,10 @@ export const authOptions: NextAuthOptions = {
         // Bloqueia apenas usuários suspensos
         if (user.status === 2) return null;
         try { await writeLog({ access, action: 100, desc: 'login' }); } catch {}
-        return { id: user.access, name: user.nome || 'Usuário', access: user.access, type: user.type, status: user.status };
+        // Session stores only identity (access + name). Type/status must be checked against DB per request.
+        return { id: user.access, name: user.nome || 'Usuário', access: user.access } as unknown as {
+          id: string; name?: string; access?: string;
+        };
       },
     }),
   ],
@@ -46,20 +49,16 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        const u = user as { access?: string; type?: number; status?: number; name?: string };
+        const u = user as { access?: string; name?: string };
         token.access = u.access;
-        token.type = u.type;
-        token.status = u.status;
         token.name = user.name;
       }
       return token;
     },
     async session({ session, token }) {
-      (session as { user?: { name?: string; access?: string; type?: number; status?: number } }).user = {
+      (session as { user?: { name?: string; access?: string } }).user = {
         name: token.name as string | undefined,
         access: token.access as string | undefined,
-        type: token.type as number | undefined,
-        status: token.status as number | undefined,
       };
       return session;
     },

@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { getCurrentUser } from '@/lib/authz';
 import type { Filter, ObjectId } from 'mongodb';
 import { verifyPin, hashPin } from '@/lib/security';
 import { writeLog } from '@/lib/logs';
@@ -63,11 +62,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === 'POST') {
-    const session = await getServerSession(req, res, authOptions);
-    const s = session as unknown as { user?: { access?: string; type?: number } } | null;
-    const accessAdmin = s?.user?.access;
-    const typeAdmin = s?.user?.type;
-    if (!accessAdmin || typeAdmin !== 10) {
+    const me = await getCurrentUser(req, res);
+    const accessAdmin = me?.access;
+    if (!accessAdmin || me?.type !== 10 || me?.status !== 1) {
       return res.status(401).json({ error: 'não autorizado' });
     }
 
@@ -149,8 +146,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const r = await col.insertOne(doc);
     const saved = { ...doc, _id: String(r.insertedId) } as unknown as UserDoc;
     await writeLog({ access: accessAdmin, action: 300, desc: `Usuário criado: ${nome} (${access})`, ref: { userId: String(r.insertedId) } });
-    const { pinHash, ...safe } = (saved as unknown as UserDoc & { pinHash?: string });
-    return res.status(201).json(safe);
+    const base: Record<string, unknown> = { ...(saved as unknown as Record<string, unknown>) };
+    delete (base as { pinHash?: unknown }).pinHash;
+    return res.status(201).json(base);
   }
 
   res.setHeader('Allow', 'GET, POST');

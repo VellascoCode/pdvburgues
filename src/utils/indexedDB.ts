@@ -21,6 +21,7 @@ export type Cliente = {
 export type Pedido = {
   id: string;
   status: string;
+  sessionId?: string;
   itens: PedidoItem[];
   tempo?: string;
   criadoEm?: string;
@@ -28,12 +29,14 @@ export type Pedido = {
   pagamento?: string;
   pagamentoStatus?: 'PAGO'|'PENDENTE'|'CANCELADO';
   entrega?: string;
+  taxaEntrega?: number;
   troco?: number;
   observacoes?: string;
   cliente?: Cliente;
   code?: string; // código de 4 dígitos para página pública
   motoboy?: string; // opcional (simulado)
   fidelidade?: { enabled: boolean; evento?: string };
+  awards?: Array<{ ev?: string; v?: number; at?: string }>; // lançamentos de pontos vinculados
 };
 
 const DB_NAME = 'pdvburgues';

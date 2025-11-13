@@ -1,0 +1,454 @@
+{
+  "ok": true,
+  "results": [
+    {
+      "step": "ensure-admin",
+      "ok": true,
+      "status": 200,
+      "data": {
+        "created": false
+      }
+    },
+    {
+      "step": "user:get 000",
+      "ok": true,
+      "status": 200,
+      "data": {
+        "type": 10,
+        "status": 1
+      }
+    },
+    {
+      "step": "config:get",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "users:check 000",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "users:check inválido (400)",
+      "ok": true,
+      "status": 400
+    },
+    {
+      "step": "users:check inexistente (404)",
+      "ok": true,
+      "status": 404
+    },
+    {
+      "step": "config:put/get",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "caixa:abrir",
+      "ok": true,
+      "status": 201,
+      "data": {
+        "status": "ABERTO",
+        "session": {
+          "sessionId": "qui-13-11-2025-XJHRFM",
+          "openedAt": "2025-11-13T17:26:36.975Z",
+          "openedBy": "000",
+          "paused": false,
+          "pauses": [],
+          "base": 0,
+          "totals": {
+            "vendas": 0,
+            "entradas": 0,
+            "saidas": 0,
+            "porPagamento": {}
+          },
+          "vendasCount": 0,
+          "items": {},
+          "cats": {},
+          "entradas": [],
+          "saidas": [],
+          "completos": [],
+          "_id": "691614cc04c03a4897a39102"
+        }
+      }
+    },
+    {
+      "step": "caixa:abrir novamente (409)",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "step": "categorias:get",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "produto:create",
+      "ok": true,
+      "status": 201,
+      "data": {
+        "id": "691614cd04c03a4897a39104"
+      }
+    },
+    {
+      "step": "produto:get",
+      "ok": true,
+      "status": 200,
+      "data": {
+        "stockInicial": 5
+      }
+    },
+    {
+      "step": "produto:update preco/promo",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "produto:delete soft",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "sec:produto PIN inválido (403)",
+      "ok": true,
+      "status": 403
+    },
+    {
+      "step": "sec:produto sem sessão (401)",
+      "ok": true,
+      "status": 401
+    },
+    {
+      "step": "sec:produto payload $set ignorado",
+      "ok": true,
+      "status": 400
+    },
+    {
+      "step": "cliente:create",
+      "ok": true,
+      "status": 201,
+      "data": {
+        "uuid": "X5CVAJ"
+      }
+    },
+    {
+      "step": "sec:xss cliente aceito (201)",
+      "ok": true,
+      "status": 201
+    },
+    {
+      "step": "categoria:create",
+      "ok": true,
+      "status": 201
+    },
+    {
+      "step": "categoria:update",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "categoria:delete",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "sec:categoria delete com produtos (400)",
+      "ok": true,
+      "status": 400
+    },
+    {
+      "step": "user:create 863",
+      "ok": true,
+      "status": 201
+    },
+    {
+      "step": "user:update 863",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "user:list contains 863",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "user:allowedColumns 863",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "event:create",
+      "ok": true,
+      "status": 201
+    },
+    {
+      "step": "event:update inactive",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "event:delete",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "products:stats",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "logs:write",
+      "ok": true,
+      "status": 201
+    },
+    {
+      "step": "logs:read",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "pedido1:create",
+      "ok": true,
+      "status": 201,
+      "data": {
+        "id": "CJI0F9",
+        "code": "9210"
+      }
+    },
+    {
+      "step": "sec:pedido sessionId override",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "pedidos:list",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "caixa:fechar pendente (409)",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "step": "caixa:entrada 50",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "caixa:saida 5",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "sec:entrada negativa (400)",
+      "ok": true,
+      "status": 400
+    },
+    {
+      "step": "pedido2:create",
+      "ok": true,
+      "status": 201,
+      "data": {
+        "id": "03BCXB",
+        "code": "3323"
+      }
+    },
+    {
+      "step": "produto:stock -3",
+      "ok": true,
+      "status": 200,
+      "data": {
+        "stockInicial": 5,
+        "stockApos": 2
+      }
+    },
+    {
+      "step": "fidelidade:+1",
+      "ok": true,
+      "status": 200,
+      "data": {
+        "pontosTotal": 1
+      }
+    },
+    {
+      "step": "sec:pedido preço negativo (400)",
+      "ok": true,
+      "status": 400
+    },
+    {
+      "step": "sec:pedido oversell (409)",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "step": "caixa:pausar",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "caixa:status PAUSADO",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "pedido:create paused (espera 409)",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "step": "caixa:retomar",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "caixa:status ABERTO",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "pedido2:cancel",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "produto:stock +3",
+      "ok": true,
+      "status": 200,
+      "data": {
+        "stockInicial": 5,
+        "stockAposCancel": 5
+      }
+    },
+    {
+      "step": "fidelidade:estorno",
+      "ok": true,
+      "status": 200,
+      "data": {
+        "pontosTotal": 0
+      }
+    },
+    {
+      "step": "saida:taxa removida",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "pedido1:complete",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "pedido1:feedback",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "pedido1:feedback duplicado (409)",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "step": "feedback:agg",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "feedback:agg 30/90",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "caixa:get",
+      "ok": true,
+      "status": 200,
+      "data": {
+        "totals": {
+          "vendas": 11,
+          "entradas": 50,
+          "saidas": 5,
+          "porPagamento": {
+            "DINHEIRO": 11,
+            "PIX": 0
+          }
+        },
+        "vendasCount": 1
+      }
+    },
+    {
+      "step": "caixa:top3 itens",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "public:get ok",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "public:get expirado",
+      "ok": true,
+      "status": 410
+    },
+    {
+      "step": "public:get PIN errado (403)",
+      "ok": true,
+      "status": 403
+    },
+    {
+      "step": "venda extra CARTAO +16",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "produtos:filtros",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "pedido4:status chain",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "pedido5:cancel estorno delta 0",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "caixa:fechar",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "pedido:create fechado (409)",
+      "ok": true,
+      "status": 409
+    },
+    {
+      "step": "caixa:abrir base 100",
+      "ok": true,
+      "status": 201
+    },
+    {
+      "step": "caixa:movimentos nova sessão",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "caixa:fechar nova sessão",
+      "ok": true,
+      "status": 200
+    },
+    {
+      "step": "user:self-suspend (400)",
+      "ok": true,
+      "status": 400
+    },
+    {
+      "step": "cleanup",
+      "ok": true,
+      "status": 200
+    }
+  ]
+}

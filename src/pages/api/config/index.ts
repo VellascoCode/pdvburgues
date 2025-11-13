@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@/lib/mongodb';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { getCurrentUser } from '@/lib/authz';
 import { verifyPin } from '@/lib/security';
 import type { Filter } from 'mongodb';
 
@@ -49,9 +48,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json(cfg);
   }
   if (req.method === 'PUT') {
-    const session = await getServerSession(req, res, authOptions);
-    const s = session as unknown as { user?: { type?: number } } | null;
-    if (!s?.user?.type || s.user.type !== 10) return res.status(401).json({ error: 'não autorizado' });
+    const me = await getCurrentUser(req, res);
+    if (!me || me.type !== 10 || me.status !== 1) return res.status(401).json({ error: 'não autorizado' });
     const body = req.body as Partial<SystemConfig> & { pin?: string };
     // PIN opcional: se enviado, validar contra usuário atual
     if (body.pin) {

@@ -9,7 +9,6 @@ import { getDb } from '@/lib/mongodb';
 import AdminNav from '@/components/AdminNav';
 import AdminSidebar from '@/components/AdminSidebar';
 import { FaPlus, FaUserShield, FaEdit } from 'react-icons/fa';
-import { FaUser } from 'react-icons/fa';
 import UserCreateModal, { NewUserData } from '@/components/UserCreateModal';
 import UserEditModal from '@/components/UserEditModal';
 import { playUiSound } from '@/utils/sound';
@@ -140,9 +139,6 @@ export default function AdminUsuarios() {
           <div className="mb-6">
             <div className="text-sm text-zinc-300 mb-2">Meu acesso</div>
             <div className="rounded-xl border theme-surface theme-border p-4 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-zinc-800 border theme-border flex items-center justify-center">
-                <FaUser className="text-zinc-500" />
-              </div>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold theme-text truncate">{me?.nome || 'Usuário'}</div>
                 <div className="text-xs text-zinc-400 truncate">Access: {access} • {typeLabel(Number(sessUser?.type ?? 1))}</div>
@@ -172,14 +168,9 @@ export default function AdminUsuarios() {
                 {users.map((u) => (
                   <tr key={u.id} className="border-b theme-border">
                     <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-full bg-zinc-800 border theme-border flex items-center justify-center">
-                          <FaUser className="text-zinc-500 text-sm" />
-                        </span>
-                        <div className="min-w-0">
-                          <div className="font-medium theme-text truncate">{u.nick || u.nome}</div>
-                          <div className="text-[11px] text-zinc-500 truncate">{u.nome}{u.nick?` • @${u.nick}`:''}</div>
-                        </div>
+                      <div className="min-w-0">
+                        <div className="font-medium theme-text truncate">{u.nick || u.nome}</div>
+                        <div className="text:[11px] text-zinc-500 truncate">{u.nome}{u.nick?` • @${u.nick}`:''}</div>
                       </div>
                     </td>
                     <td className="px-3 py-2">{u.access}</td>

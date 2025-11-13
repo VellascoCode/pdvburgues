@@ -12,6 +12,7 @@ type Pedido = {
   pagamento?: string;
   code?: string;
   troco?: number;
+  awards?: Array<{ ev?: string; v?: number; at?: string }>;
 };
 
 const STEPS = [
@@ -98,12 +99,12 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
                 </div>
                 <button ref={closeRef} className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-300" onClick={onClose} aria-label="Fechar"><FaTimes /></button>
               </div>
-              {/* Link público e Code */}
+              {/* Link público e PIN (mantidos neste modal geral) */}
               {pedido && (
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div className="text-xs text-zinc-400 flex items-center gap-2">
                     <span className="font-semibold text-zinc-300">Link público:</span>
-                    <button className="px-2 py-1 rounded border border-zinc-700 hover:bg-zinc-800 text-zinc-300" onClick={() => { try { const href = `${window.location.origin}/pedido/${pedido.id}`; navigator.clipboard?.writeText(href); } catch {} }}>Copiar</button>
+                    <button className="px-2 py-1 rounded border border-zinc-700 hover:bg-zinc-800 text-zinc-300" onClick={() => { try { const code = (pedido.code && /^\d{4}$/.test(pedido.code)) ? pedido.code : (pedido.id || '').replace(/\D/g,'').slice(0,4).padEnd(4,'0'); const href = `${window.location.origin}/pedido/${pedido.id}?code=${code}`; navigator.clipboard?.writeText(href); } catch {} }}>Copiar</button>
                   </div>
                   <div className="text-xs text-zinc-400 flex items-center gap-2">
                     <span className="font-semibold text-zinc-300">PIN:</span>
@@ -154,6 +155,15 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
                 <h4 className="text-sm font-semibold text-zinc-200 mb-2">Cliente & Entrega</h4>
                 <div className="text-sm text-zinc-400">Entrega: {pedido?.entrega || '—'}</div>
                 <div className="text-sm text-zinc-400">Pagamento: {pedido?.pagamento || '—'}</div>
+                {(() => {
+                  const raw = pedido?.taxaEntrega as unknown;
+                  const val = typeof raw === 'number' ? raw : (typeof raw === 'string' && raw.trim() ? parseFloat(raw.replace(/[^0-9.,]/g,'').replace(',', '.')) : 0);
+                  const n = isFinite(val) ? val : 0;
+                  return n > 0.005 ? (<div className="text-sm text-zinc-400">Taxa: R$ {n.toFixed(2)}</div>) : null;
+                })()}
+                {Array.isArray(pedido?.awards) && pedido!.awards!.length>0 && (
+                  <div className="text-xs text-emerald-300/90">Pontos: +{pedido!.awards!.reduce((a,b)=> a + (Number(b.v||1)), 0)} {pedido!.awards![0]?.ev ? `(${pedido!.awards![0]!.ev})` : ''}</div>
+                )}
                 {pedido?.troco ? (
                   <div className="pt-2 border-t border-zinc-800 text-sm text-zinc-300">
                     Troco: {Number(pedido.troco).toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}

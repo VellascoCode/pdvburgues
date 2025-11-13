@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FaHourglassHalf, FaUtensils, FaClock, FaMotorcycle, FaCheckCircle, FaTimesCircle, 
-  FaShoppingBag, FaDollarSign, FaMapMarkerAlt, FaFileAlt, FaShieldAlt, FaUser, FaRoad, FaHashtag, FaCity
+  FaShoppingBag, FaDollarSign, FaMapMarkerAlt, FaFileAlt, FaShieldAlt, FaUser, FaRoad, FaHashtag, FaCity, FaStar
 } from 'react-icons/fa';
 import { playUiSound } from '@/utils/sound';
 
@@ -36,11 +36,15 @@ type Pedido = {
   observacoes?: string;
   cliente?: Cliente;
   troco?: number | string | null;
+  total?: number;
+  // safe snapshot from public API
+  clienteInfo?: { nick?: string; nome?: string; endereco?: { rua?: string; numero?: string; bairro?: string; cidade?: string; uf?: string; complemento?: string } };
+  classificacao?: Record<'1'|'2'|'3', number>;
 };
 
 export default function PublicPedido() {
   const router = useRouter();
-  const { id } = router.query;
+  const { id } = router.query as { id?: string };
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
@@ -54,6 +58,13 @@ export default function PublicPedido() {
   const [shake, setShake] = useState(false);
   const inputsRef = useRef<Array<HTMLInputElement | null>>([null, null, null, null]);
   const formRef = useRef<HTMLFormElement>(null);
+  const [pinOk, setPinOk] = useState<string | null>(null);
+  const [rated, setRated] = useState<Record<'1'|'2'|'3', number> | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try { const v = localStorage.getItem('pedido:rate:'+String(id||'')); return v ? JSON.parse(v) as Record<'1'|'2'|'3', number> : null; } catch { return null; }
+  });
+  const [draft, setDraft] = useState<Partial<Record<'1'|'2'|'3', number>>>({});
+  const [hover, setHover] = useState<Partial<Record<'1'|'2'|'3', number>>>({});
 
   // Som sutil de submit (sucesso/erro)
   const playSubmitSound = (type: 'success' | 'error') => {
@@ -109,14 +120,16 @@ export default function PublicPedido() {
           setLoading(false);
           return;
         }
-        // Completo há mais de 6h => indisponível
-        const tsComp = fetched.timestamps?.COMPLETO ? Date.parse(fetched.timestamps.COMPLETO) : undefined;
-        if (String(fetched.status).toUpperCase() === 'COMPLETO' && tsComp && (Date.now() - tsComp) > 6 * 60 * 60 * 1000) {
-          setErro('pedido cancelado ou inexistente');
-          setPedido(null);
-          setLoading(false);
-          return;
-        }
+        // Expirado: COMPLETO há mais de 1h => indisponível
+        try {
+          const tsComp = fetched.timestamps?.COMPLETO ? Date.parse(String(fetched.timestamps.COMPLETO)) : undefined;
+          if (String(fetched.status).toUpperCase() === 'COMPLETO' && tsComp && (Date.now() - tsComp) > 60 * 60 * 1000) {
+            setErro('pedido cancelado ou inexistente');
+            setPedido(null);
+            setLoading(false);
+            return;
+          }
+        } catch {}
         setPedido(fetched);
       }
       setLoading(false);
@@ -133,12 +146,55 @@ export default function PublicPedido() {
     return () => clearInterval(it);
   }, []);
 
-  // Foca no primeiro input ao carregar
+  // Foca no primeiro input ao carregar + som de abertura/fechamento
   useEffect(() => {
-    if (!blocked && !successPin) {
-      inputsRef.current[0]?.focus();
-    }
+    playUiSound('open');
+    if (!blocked && !successPin) inputsRef.current[0]?.focus();
+    return () => { playUiSound('close'); };
   }, [blocked, successPin]);
+
+  // Preenche PIN via query (?code=1234) e tenta abrir automaticamente via API pública
+  useEffect(() => {
+    const code = typeof router.query?.code === 'string' ? router.query.code : undefined;
+    if (id && code && /^\d{4}$/.test(code) && !successPin) {
+      const t = setTimeout(() => {
+        setPin(code.split(''));
+        fetch(`/api/pedidos/public?id=${encodeURIComponent(String(id))}&code=${encodeURIComponent(code)}`)
+          .then(async (r) => {
+            if (r.ok) {
+              const j = await r.json() as Pedido;
+              setPedido(j);
+              setSuccessPin(true);
+              setPinOk(code);
+              if (j.classificacao) { try { setRated(j.classificacao); } catch {} }
+            }
+          })
+          .catch(() => {});
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [router.query, id, successPin]);
+
+  // Auto-refresh do status enquanto não COMPLETO, para ativar avaliação assim que entregar
+  useEffect(() => {
+    if (!successPin || rated || !id || !(pedido && pedido.status && pedido.status !== 'COMPLETO')) return;
+    const code = pinOk || (typeof router.query?.code === 'string' ? String(router.query.code) : null);
+    if (!code) return;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const r = await fetch(`/api/pedidos/public?id=${encodeURIComponent(String(id))}&code=${encodeURIComponent(String(code))}`);
+        if (r.ok) {
+          const j = await r.json();
+          if (!stop) setPedido(j as Pedido);
+        }
+      } catch {}
+    };
+    const iv = setInterval(tick, 15000);
+    // primeira batida leve para acelerar
+    setTimeout(tick, 3000);
+    return () => { stop = true; clearInterval(iv); };
+  }, [successPin, rated, pedido?.status, id, pinOk, router.query]);
 
   const steps = [
     { key:'EM_AGUARDO', label:'Recebido', icon: FaHourglassHalf },
@@ -158,6 +214,8 @@ export default function PublicPedido() {
     return `há ${h}h${rm?` ${rm}min`:''}`;
   };
 
+  const canRate = !!(successPin && pedido?.status === 'COMPLETO' && !rated);
+
   // Normalização de itens e totais
   const itens = useMemo(() => (pedido?.itens || []).filter(Boolean) as PedidoItem[], [pedido]);
   const itensObjs = useMemo(() => itens
@@ -169,8 +227,9 @@ export default function PublicPedido() {
     })), [itens]);
   const totalItens = useMemo(() => itensObjs.reduce((acc, it) => acc + (it.quantidade || 1), 0), [itensObjs]);
   const totalValor = useMemo(() => itensObjs.reduce((acc, it) => acc + (Number(it.preco) || 0) * (it.quantidade || 1), 0), [itensObjs]);
+  const awards = (pedido as any)?.awards as Array<{ ev?: string; v?: number; at?: string }> | undefined;
 
-  // Handlers PIN
+  // Handlers PIN (agora validando no backend público)
   const handleChange = (idx: number, value: string) => {
     if (blocked || successPin) return;
     if (!/^[0-9]?$/.test(value)) return;
@@ -195,7 +254,7 @@ export default function PublicPedido() {
     const nextEmpty = newPin.findIndex((d) => d === '');
     if (nextEmpty !== -1) inputsRef.current[nextEmpty]?.focus(); else inputsRef.current[3]?.focus();
   };
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (blocked || successPin) return;
     if (pin.some(d => d === '')) {
@@ -205,28 +264,35 @@ export default function PublicPedido() {
       return;
     }
     const pinStr = pin.join('');
-    // Universal PIN: 1111
-    if (pinStr === '1111') {
+    try {
+      const r = await fetch(`/api/pedidos/public?id=${encodeURIComponent(String(id||''))}&code=${encodeURIComponent(pinStr)}`);
+      if (r.status === 410) {
+        setErrorPin('Pedido expirado.'); setShake(true); setTimeout(() => setShake(false), 500); playSubmitSound('error'); return;
+      }
+      if (!r.ok) { setErrorPin('PIN incorreto.'); setShake(true); setTimeout(() => setShake(false), 500); playSubmitSound('error'); return; }
+      const j = await r.json();
+      setPedido(j as Pedido);
       setSuccessPin(true);
+      setPinOk(pinStr);
+      if ((j as any)?.classificacao) { try { setRated((j as any).classificacao); } catch {} }
       playSubmitSound('success');
-    } else {
-      setErrorPin('PIN incorreto. Tente 1111.');
-      setShake(true); setTimeout(() => setShake(false), 500);
-      playSubmitSound('error');
+    } catch {
+      setErrorPin('Falha ao validar PIN.'); setShake(true); setTimeout(() => setShake(false), 500); playSubmitSound('error');
     }
   };
 
   const currIdx = steps.findIndex(x => x.key === pedido?.status);
 
-  // Dados auxiliares (endereços e observações simuladas)
-  const seed = useMemo(() => (typeof id === 'string' ? id : 'X').split('').reduce((a,c)=> a + c.charCodeAt(0), 0), [id]);
-  const addr = useMemo(() => ({
-    nome: NOMES[seed % NOMES.length],
-    rua: RUAS[seed % RUAS.length],
-    numero: 100 + (seed % 900),
-    bairro: BAIRROS[(seed >> 1) % BAIRROS.length]
-  }), [seed]);
-  const obsAuto = useMemo(() => (pedido?.observacoes ? pedido.observacoes : OBS_POOL[seed % OBS_POOL.length]), [pedido, seed]);
+  // Endereço real (sem simulação)
+  const addr = useMemo(() => {
+    const info: any = (pedido as any)?.cliente || (pedido as any)?.clienteInfo;
+    const e = info?.endereco;
+    const nomeReal = info?.nome || info?.nick;
+    if (e) return { nome: nomeReal || 'Cliente', rua: e.rua || '—', numero: e.numero || '—', bairro: e.bairro || '—', cidade: e.cidade || '—', uf: e.uf || '—' } as const;
+    const ent = String(pedido?.entrega || '').toUpperCase();
+    if (ent === 'RETIRADA' || ent === 'BALCÃO' || (pedido as any)?.cliente?.id === 'BALC') return { nome: 'Em loja', rua: '—', numero: '—', bairro: '—', cidade: '—', uf: '—' } as const;
+    return { nome: '—', rua: '—', numero: '—', bairro: '—', cidade: '—', uf: '—' } as const;
+  }, [pedido]);
 
   return (
     <div className="min-h-screen app-gradient-bg p-6 flex items-center justify-center relative">
@@ -254,20 +320,19 @@ export default function PublicPedido() {
               <motion.div
                 initial={{ opacity: 0, y: -6, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                className="text-center text-red-400 flex flex-col items-center gap-3"
+                className="text-center flex flex-col items-center gap-3"
               >
-                <motion.div animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.2, repeat: 2, ease: 'easeInOut' }}>
-                  <FaTimesCircle className="text-3xl" />
+                <motion.div
+                  animate={{ scale: [1, 1.06, 1] }}
+                  transition={{ duration: 1.2, repeat: 2, ease: 'easeInOut' }}
+                  onViewportEnter={() => playUiSound('error')}
+                >
+                  <FaTimesCircle className="text-3xl text-orange-400" />
                 </motion.div>
-                <p className="font-semibold">{erro}</p>
-                <p className="text-zinc-400 text-sm max-w-md">
-                  Obrigado por acompanhar. Este link não está disponível no momento.
+                <p className="font-semibold text-orange-300">Obrigado por acompanhar!</p>
+                <p className="text-zinc-300 text-sm max-w-md">
+                  Este link não está disponível no momento. Entre em contato com a loja/empresa para verificar as informações do seu pedido.
                 </p>
-                <div className="flex items-center gap-2 mt-1 flex-wrap justify-center">
-                  <Link href="/" className="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800/60 transition">Voltar ao início</Link>
-                  <button onClick={() => typeof window !== 'undefined' && window.location.reload()} className="px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800/60 transition">Tentar novamente</button>
-                  <a href="mailto:suporte@pdvburguer.app" className="px-3 py-1.5 rounded-lg border border-orange-600 text-orange-300 hover:bg-orange-600/10 transition">Contato/Suporte</a>
-                </div>
               </motion.div>
             ) : (
               <>
@@ -366,6 +431,11 @@ export default function PublicPedido() {
                             : pedido.pagamentoStatus}
                         </span>
                       )}
+                      {pedido?.pagamento && (
+                        <span className="ml-2 text-xs px-2.5 py-1 rounded-full border border-zinc-700 text-zinc-300 bg-zinc-800/40">
+                          <span className="inline-flex items-center gap-1"><FaDollarSign className="text-zinc-400" /> {pedido.pagamento}</span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Itens e totais */}
@@ -388,6 +458,14 @@ export default function PublicPedido() {
                         <div className="flex items-center gap-2 text-zinc-400"><FaDollarSign />Total</div>
                         <div className="text-white font-semibold">{totalValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
                       </div>
+                      {Array.isArray(awards) && awards.length > 0 && (
+                        <div className="mt-2 text-xs text-emerald-300/90">
+                          Ganhou {awards.reduce((a,b)=> a + (Number(b.v||1)), 0)} ponto(s){awards[0]?.ev ? ` — ${awards[0].ev}` : ''}
+                        </div>
+                      )}
+                      {pedido?.pagamento && (
+                        <div className="mt-1 text-sm text-zinc-300"><span className="text-zinc-400">Pagamento:</span> {pedido.pagamento}</div>
+                      )}
                       <div className="mt-2 text-sm text-zinc-300"><span className="text-zinc-400">Troco:</span> {pedido?.troco ? Number(pedido.troco).toLocaleString('pt-BR',{style:'currency', currency:'BRL'}) : 'Não'}</div>
                     </div>
 
@@ -399,13 +477,65 @@ export default function PublicPedido() {
                         <div className="flex items-center gap-2"><FaRoad className="text-zinc-400" /><span>Rua: {addr.rua}</span></div>
                         <div className="flex items-center gap-2"><FaHashtag className="text-zinc-400" /><span>Número: {addr.numero}</span></div>
                         <div className="flex items-center gap-2"><FaCity className="text-zinc-400" /><span>Bairro: {addr.bairro}</span></div>
+                        <div className="flex items-center gap-2"><FaCity className="text-zinc-400" /><span>Cidade: {addr.cidade || '—'}</span></div>
+                        <div className="flex items-center gap-2"><FaCity className="text-zinc-400" /><span>UF: {addr.uf || '—'}</span></div>
                       </div>
                     </div>
 
                     {/* Observações (w-full) */}
                     <div className="bg-zinc-800/40 border border-zinc-700 rounded-xl p-4 mb-2" onMouseEnter={() => playUiSound('hover')}>
                       <div className="flex items-center gap-2 text-zinc-300 mb-1"><FaFileAlt className="text-cyan-400" /><span className="font-semibold">Observações</span></div>
-                      <div className="text-sm text-zinc-200 whitespace-pre-wrap wrap-break-word">{obsAuto}</div>
+                      <div className="text-sm text-zinc-200 whitespace-pre-wrap break-words">{pedido?.observacoes?.trim() ? pedido.observacoes : 'Sem descrição'}</div>
+                    </div>
+
+                    {/* Avaliação (uma vez / 3 categorias) */}
+                    <div className="bg-zinc-800/40 border border-zinc-700 rounded-xl p-4 mb-2" onMouseEnter={() => playUiSound('hover')}>
+                      <div className="text-sm text-zinc-300 mb-2">Como foi sua experiência?</div>
+                      {(['1','2','3'] as const).map((key) => (
+                        <div key={key} className="flex items-center gap-2 mb-2">
+                          <div className="min-w-24 text-xs text-zinc-400 capitalize">{key==='1'?'pedido':key==='2'?'atendimento':'entrega'}</div>
+                          <div className="flex items-center gap-1">
+                            {[1,2,3,4,5].map((h) => {
+                              // prioridade: salvo (rated) > rascunho (draft) > hover
+                              const current = (rated as any)?.[key] ?? (draft as any)?.[key] ?? (hover as any)?.[key] ?? 0;
+                              const filled = current >= h;
+                              const color = key==='1' ? (filled ? 'text-emerald-400' : 'text-zinc-600') : key==='2' ? (filled ? 'text-yellow-400' : 'text-zinc-600') : (filled ? 'text-orange-400' : 'text-zinc-600');
+                              const Icon = key==='1' ? FaShoppingBag : key==='2' ? FaStar : FaMotorcycle;
+                              return (
+                                <button
+                                  key={h}
+                                  type="button"
+                                  disabled={!canRate}
+                                  onClick={async()=>{
+                                    if (!canRate) return;
+                                    const next = { ...(draft as any), [key]: h } as Record<'1'|'2'|'3', number>;
+                                    setDraft(next);
+                                    const ready = next['1'] && next['2'] && next['3'];
+                                    if (ready && pinOk && !rated) {
+                                      try {
+                                        const r = await fetch('/api/pedidos/feedback', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, code: pinOk, classificacao: next }) });
+                                        if (r.ok) { const j = await r.json(); const saved = (j.classificacao || next) as Record<'1'|'2'|'3', number>; setRated(saved); try { localStorage.setItem('pedido:rate:'+String(id||''), JSON.stringify(saved)); } catch {}; playUiSound('success'); }
+                                      } catch {}
+                                    }
+                                  }}
+                                  onMouseEnter={()=> { if (!rated && canRate) setHover(prev => ({ ...prev, [key]: h })); }}
+                                  onMouseLeave={()=> { if (!rated && canRate) setHover(prev => { const cp: any = { ...prev }; delete cp[key]; return cp; }); }}
+                                  className={`text-xl sm:text-2xl transition-transform ${(!rated && canRate) ? 'hover:scale-110 cursor-pointer' : 'cursor-default'} ${color}`}
+                                  aria-label={`${key==='1'?'pedido':key==='2'?'atendimento':'entrega'} ${h} de 5`}
+                                >
+                                  <Icon />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                      {!rated && pedido?.status !== 'COMPLETO' && (
+                        <div className="text-xs text-zinc-400">Você poderá avaliar quando o pedido for entregue.</div>
+                      )}
+                      {rated ? (
+                        <div className="text-xs text-zinc-400 mt-1">Obrigado pelo feedback!</div>
+                      ) : null}
                     </div>
 
                     {/* TIMELINE */}
