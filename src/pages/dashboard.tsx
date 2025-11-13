@@ -23,7 +23,7 @@ import { getDb } from '@/lib/mongodb';
 import { playUiSound } from "../utils/sound";
 import { on, off, emit } from '@/utils/eventBus';
 import { listPedidos, updatePedidoStatus } from '@/lib/pedidosClient';
-type CashResumo = { id: string; at: string; items: number; total: number; cliente?: string };
+type CashResumo = { id: string; at: string; items: number; total: number; cliente?: string; cls?: number[] };
 
 const statusList: {
   key: string;
@@ -449,11 +449,11 @@ export default function Dashboard() {
                       <div className="text-[11px] text-green-300/80">{new Date(c.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                       <div className="text-sm font-semibold text-green-200 truncate">{c.id}</div>
                       <div className="text-xs text-green-300/80 truncate">{c.cliente || '-'}</div>
-                      {Array.isArray((c as any).cls) && (
+                      {Array.isArray(c.cls) && (
                         <div className="mt-1 grid grid-cols-3 gap-1 text-[11px] text-green-300/80">
-                          <div className="inline-flex items-center gap-1"><FaShoppingBag className="opacity-80" /> x{Number((c as any).cls[0]||0)}</div>
-                          <div className="inline-flex items-center gap-1"><FaStar className="opacity-80" /> x{Number((c as any).cls[1]||0)}</div>
-                          <div className="inline-flex items-center gap-1"><FaMotorcycle className="opacity-80" /> x{Number((c as any).cls[2]||0)}</div>
+                          <div className="inline-flex items-center gap-1"><FaShoppingBag className="opacity-80" /> x{Number(c.cls[0]||0)}</div>
+                          <div className="inline-flex items-center gap-1"><FaStar className="opacity-80" /> x{Number(c.cls[1]||0)}</div>
+                          <div className="inline-flex items-center gap-1"><FaMotorcycle className="opacity-80" /> x{Number(c.cls[2]||0)}</div>
                         </div>
                       )}
                     </div>

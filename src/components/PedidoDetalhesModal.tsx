@@ -12,6 +12,7 @@ type Pedido = {
   pagamento?: string;
   code?: string;
   troco?: number;
+  taxaEntrega?: number | string;
   awards?: Array<{ ev?: string; v?: number; at?: string }>;
 };
 

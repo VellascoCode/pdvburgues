@@ -20,6 +20,7 @@ import productsStatsHandler from './products/stats';
 import categoriasIndexHandler from './categorias/index';
 import categoriaKeyHandler from './categorias/[key]';
 import produtoById from './produtos/[id]';
+import { ObjectId } from 'mongodb';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createReq, createRes } from '@/tests/mockReqRes';
@@ -648,7 +649,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (sessionId) await db.collection('cash').deleteOne({ sessionId });
       if (pedido1?.id) await db.collection('pedidos').deleteOne({ id: pedido1.id });
       if (pedido2?.id) await db.collection('pedidos').deleteOne({ id: pedido2.id });
-      if (prodId) await db.collection('products').deleteMany({ _id: { $in: [prodId, prodId].map((s)=> { try { const { ObjectId } = require('mongodb'); return new ObjectId(s); } catch { return s; } }) } as any });
+      if (prodId) await db.collection('products').deleteMany({ _id: { $in: [prodId, prodId].map((s)=> { try { return new ObjectId(s); } catch { return s; } }) } as any });
       if (clienteUuid) await db.collection('customers').deleteOne({ uuid: clienteUuid });
       await db.collection('feedback').deleteMany({ pid: { $in: [pedido1?.id, pedido2?.id].filter(Boolean) } });
       // tentativa de auto-suspender admin (deve falhar) — fora do fluxo principal de caixa

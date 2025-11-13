@@ -40,6 +40,7 @@ type Pedido = {
   // safe snapshot from public API
   clienteInfo?: { nick?: string; nome?: string; endereco?: { rua?: string; numero?: string; bairro?: string; cidade?: string; uf?: string; complemento?: string } };
   classificacao?: Record<'1'|'2'|'3', number>;
+  awards?: Array<{ ev?: string; v?: number; at?: string }>;
 };
 
 export default function PublicPedido() {
@@ -227,7 +228,7 @@ export default function PublicPedido() {
     })), [itens]);
   const totalItens = useMemo(() => itensObjs.reduce((acc, it) => acc + (it.quantidade || 1), 0), [itensObjs]);
   const totalValor = useMemo(() => itensObjs.reduce((acc, it) => acc + (Number(it.preco) || 0) * (it.quantidade || 1), 0), [itensObjs]);
-  const awards = (pedido as any)?.awards as Array<{ ev?: string; v?: number; at?: string }> | undefined;
+  const awards = pedido?.awards as Array<{ ev?: string; v?: number; at?: string }> | undefined;
 
   // Handlers PIN (agora validando no backend público)
   const handleChange = (idx: number, value: string) => {
@@ -270,11 +271,11 @@ export default function PublicPedido() {
         setErrorPin('Pedido expirado.'); setShake(true); setTimeout(() => setShake(false), 500); playSubmitSound('error'); return;
       }
       if (!r.ok) { setErrorPin('PIN incorreto.'); setShake(true); setTimeout(() => setShake(false), 500); playSubmitSound('error'); return; }
-      const j = await r.json();
-      setPedido(j as Pedido);
+      const j = await r.json() as Pedido;
+      setPedido(j);
       setSuccessPin(true);
       setPinOk(pinStr);
-      if ((j as any)?.classificacao) { try { setRated((j as any).classificacao); } catch {} }
+      if (j.classificacao) { try { setRated(j.classificacao); } catch {} }
       playSubmitSound('success');
     } catch {
       setErrorPin('Falha ao validar PIN.'); setShake(true); setTimeout(() => setShake(false), 500); playSubmitSound('error');
@@ -285,12 +286,12 @@ export default function PublicPedido() {
 
   // Endereço real (sem simulação)
   const addr = useMemo(() => {
-    const info: any = (pedido as any)?.cliente || (pedido as any)?.clienteInfo;
+    const info = pedido?.clienteInfo;
     const e = info?.endereco;
-    const nomeReal = info?.nome || info?.nick;
+    const nomeReal = info?.nome || info?.nick || pedido?.cliente?.nick;
     if (e) return { nome: nomeReal || 'Cliente', rua: e.rua || '—', numero: e.numero || '—', bairro: e.bairro || '—', cidade: e.cidade || '—', uf: e.uf || '—' } as const;
     const ent = String(pedido?.entrega || '').toUpperCase();
-    if (ent === 'RETIRADA' || ent === 'BALCÃO' || (pedido as any)?.cliente?.id === 'BALC') return { nome: 'Em loja', rua: '—', numero: '—', bairro: '—', cidade: '—', uf: '—' } as const;
+    if (ent === 'RETIRADA' || ent === 'BALCÃO' || pedido?.cliente?.id === 'BALC') return { nome: 'Em loja', rua: '—', numero: '—', bairro: '—', cidade: '—', uf: '—' } as const;
     return { nome: '—', rua: '—', numero: '—', bairro: '—', cidade: '—', uf: '—' } as const;
   }, [pedido]);
 
@@ -497,7 +498,7 @@ export default function PublicPedido() {
                           <div className="flex items-center gap-1">
                             {[1,2,3,4,5].map((h) => {
                               // prioridade: salvo (rated) > rascunho (draft) > hover
-                              const current = (rated as any)?.[key] ?? (draft as any)?.[key] ?? (hover as any)?.[key] ?? 0;
+                              const current = (rated?.[key] ?? draft[key] ?? hover[key] ?? 0);
                               const filled = current >= h;
                               const color = key==='1' ? (filled ? 'text-emerald-400' : 'text-zinc-600') : key==='2' ? (filled ? 'text-yellow-400' : 'text-zinc-600') : (filled ? 'text-orange-400' : 'text-zinc-600');
                               const Icon = key==='1' ? FaShoppingBag : key==='2' ? FaStar : FaMotorcycle;
@@ -508,18 +509,18 @@ export default function PublicPedido() {
                                   disabled={!canRate}
                                   onClick={async()=>{
                                     if (!canRate) return;
-                                    const next = { ...(draft as any), [key]: h } as Record<'1'|'2'|'3', number>;
-                                    setDraft(next);
-                                    const ready = next['1'] && next['2'] && next['3'];
+                                    const nextDraft: Partial<Record<'1'|'2'|'3', number>> = { ...draft, [key]: h };
+                                    setDraft(nextDraft);
+                                    const ready = !!(nextDraft['1'] && nextDraft['2'] && nextDraft['3']);
                                     if (ready && pinOk && !rated) {
                                       try {
-                                        const r = await fetch('/api/pedidos/feedback', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, code: pinOk, classificacao: next }) });
-                                        if (r.ok) { const j = await r.json(); const saved = (j.classificacao || next) as Record<'1'|'2'|'3', number>; setRated(saved); try { localStorage.setItem('pedido:rate:'+String(id||''), JSON.stringify(saved)); } catch {}; playUiSound('success'); }
+                                        const r = await fetch('/api/pedidos/feedback', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, code: pinOk, classificacao: nextDraft }) });
+                                        if (r.ok) { const j = await r.json(); const saved = (j.classificacao || nextDraft) as Record<'1'|'2'|'3', number>; setRated(saved); try { localStorage.setItem('pedido:rate:'+String(id||''), JSON.stringify(saved)); } catch {}; playUiSound('success'); }
                                       } catch {}
                                     }
                                   }}
                                   onMouseEnter={()=> { if (!rated && canRate) setHover(prev => ({ ...prev, [key]: h })); }}
-                                  onMouseLeave={()=> { if (!rated && canRate) setHover(prev => { const cp: any = { ...prev }; delete cp[key]; return cp; }); }}
+                                  onMouseLeave={()=> { if (!rated && canRate) setHover(prev => { const { [key]: _, ...rest } = prev; return rest; }); }}
                                   className={`text-xl sm:text-2xl transition-transform ${(!rated && canRate) ? 'hover:scale-110 cursor-pointer' : 'cursor-default'} ${color}`}
                                   aria-label={`${key==='1'?'pedido':key==='2'?'atendimento':'entrega'} ${h} de 5`}
                                 >
