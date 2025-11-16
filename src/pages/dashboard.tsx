@@ -1,5 +1,5 @@
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import React from "react";
 import { FaCheckCircle, FaMotorcycle, FaUtensils, FaClock, FaTimesCircle, FaHourglassHalf, FaEyeSlash, FaTimes, FaStar, FaShoppingBag } from "react-icons/fa";
@@ -22,7 +22,8 @@ import { authOptions } from './api/auth/[...nextauth]';
 import { getDb } from '@/lib/mongodb';
 import { playUiSound } from "../utils/sound";
 import { on, off, emit } from '@/utils/eventBus';
-import { listPedidos, updatePedidoStatus } from '@/lib/pedidosClient';
+import { listPedidos } from '@/lib/pedidosClient';
+import { usePedidoStatusUpdater } from '@/hooks/usePedidoStatus';
 type CashResumo = { id: string; at: string; items: number; total: number; cliente?: string; cls?: number[] };
 
 const statusList: {
@@ -212,7 +213,7 @@ export default function Dashboard() {
 
   // Caixa: seção foi extraída para componente próprio (ver CaixaSection)
 
-  async function reloadFromServer() {
+  const reloadFromServer = useCallback(async () => {
     setLoading(true);
     try {
       setPedidos(await listPedidos());
@@ -222,12 +223,12 @@ export default function Dashboard() {
       setPedidos([]);
       // serverCount removed
     } finally { setLoading(false); }
-  }
+  }, []);
 
   useEffect(() => {
     if (status !== "authenticated") return;
     reloadFromServer();
-  }, [status]);
+  }, [status, reloadFromServer]);
 
   // Carregar "completos" do caixa atual
   async function loadCompletos() {
@@ -272,11 +273,7 @@ export default function Dashboard() {
 
   // Removido: listeners de online/offline e sincronização IndexedDB
 
-  const handleStatus = async (id: string, novoStatus: string) => {
-    await updatePedidoStatus(id, novoStatus);
-    emit('cash:refresh');
-    await reloadFromServer();
-  };
+  const handleStatus = usePedidoStatusUpdater({ onAfterChange: reloadFromServer });
 
   // Filtra pedidos que não são cancelados para as colunas
   const pedidosAtivos = useMemo(() => pedidos.filter(p => p.status !== 'CANCELADO'), [pedidos]);
@@ -499,7 +496,11 @@ export default function Dashboard() {
   {/* Modal Novo Pedido */}
       <AnimatePresence>
         {showNovo && (
-          <NovoPedidoModalComponent onClose={() => setShowNovo(false)} onSaved={async()=>{ await reloadFromServer(); }} />
+          <NovoPedidoModalComponent
+            onClose={() => setShowNovo(false)}
+            onSaved={async()=>{ await reloadFromServer(); }}
+            existingIds={pedidos.map((p) => p.id)}
+          />
         )}
       </AnimatePresence>
 

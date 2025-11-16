@@ -50,7 +50,6 @@ Próximos passos
   - [x] Fidelidade dentro do box “Cliente” (toggle + seleção de evento).
   - [x] Botões do Cliente: Balcão, Novo cliente e Clientes (lista simulada) — grid 3 em desktop e 1 em mobile.
   - [x] Overlay escurecido; clique fora não fecha; X abre mini‑confirmação (Voltar/Fechar).
-- [ ] Geração de ID personalizado para pedidos (1 dígito + 1 letra + 4 dígitos)
 - [x] Página pública de acompanhamento do pedido (link `/pedido/[id]`, PIN universal 1111, timeline, indisponível se cancelado ou completo >6h)
 - [x] Painel administrativo (cadastro/edição de produtos, controle de caixa, histórico, login por PIN)
 - [x] Cadastro/Edição de produtos (nome, categoria, preço, disponibilidade, imagem)
@@ -96,7 +95,6 @@ Próximos passos
 - [x] Busca de categorias no Admin Config: desabilitado autofill/auto-complete (type="search", autocomplete=off, inputMode=search, name/id próprios) para impedir preenchimento automático de e‑mail.
 - [x] Remoção temporária do campo de busca em Config/Categorias e dos parâmetros de query na API client (refreshLists) para eliminar interferência de autofill; voltaremos quando houver solução 100% cross‑browser.
 
-- [ ] Validar dados e garantir unicidade de IDs
 
 ## Financeiro / Caixa (11/11/2025)
 - [x] API `/api/caixa` criada: GET status (FECHADO/ABERTO/PAUSADO) e POST ações (abrir, pausar, retomar, fechar) com PIN do admin.
@@ -119,13 +117,10 @@ Próximos passos
 - [x] Dashboard atualizado para usar `computeDashboardStats` (código mais simples e testável).
 
 Próximos passos (Clean Code)
-- [ ] Extrair util de atualização de status do pedido no cliente (drag e ações) para função dedicada.
-- [ ] Mapear outros pontos com funções “faz-tudo” e aplicar extração incremental.
 
 Próximos passos (Caixa)
 - [x] Lançamentos manuais de entradas/saídas via UI com PIN e logs (401/402).
 - [x] Bloquear início de venda no UI quando caixa estiver fechado/pausado (desabilitar "+ Novo Pedido").
-- [ ] Ajustar acúmulo por pagamento apenas quando marcado como PAGO (definir fluxo).
 - [x] Users: modelo básico e rotas `GET /api/users/ensure-admin` (injeta admin padrão 000/1234 se vazio) e `GET /api/users/check?access=000` (checar type/status).
  - [x] Guards SSR: `dashboard` e `admin` usam getServerSideProps para checar `users` (type/status) a cada request.
 
@@ -133,7 +128,6 @@ Próximos passos (Caixa)
 - [x] `/src/pages` – páginas principais (index, dashboard, pedido/[id], api)
 - [x] `/src/components` – componentes reutilizáveis (PedidoCard, PedidoDetalhesModal)
 - [x] `/src/lib` – utilitários (mongodb)
-- [ ] `/public` – assets, manifest.json, ícones, service worker
 - [x] `/styles` – CSS global e módulos
 
 ## Fluxo de Telas
@@ -148,10 +142,8 @@ Próximos passos (Caixa)
 
 ## Próximos Passos
 - [x] Login com Access ID (3 dígitos) + PIN (4 dígitos) usando coleção `users`.
-- [ ] Middleware/guard para checar `users` por página (type/status) sem depender de sessão. (Coberto via SSR hoje; middleware opcional)
 - [x] Guard SSR em `dashboard` e `admin` (checa type/status a cada request)
 - [x] Admin: CRUD de usuários (types 1..9), permissões, status.
-- [ ] Modal Novo Pedido: autocomplete de cliente; polir responsivo/mobile (sumário fixo e rolagem de catálogo); remover bloco Header legado do dashboard.
 - [x] Endpoints e telas de Produtos e Caixa.
  - [x] Aplicar NavTop em páginas que usam a navegação comum (exceto index/admin).
 
@@ -162,8 +154,6 @@ Próximos passos (Caixa)
 - [x] Implementar IndexedDB (API nativa) para pedidos
 - [x] Sincronizar dados ao reconectar
 - [x] Proteger rotas admin
-- [ ] Testar endpoints com Postman
-- [ ] Adotar Design Sistemático para componentes
 
 ## 12/11/2025 – Dashboard/Caixa/Nav/Clientes (limpezas e ajustes)
 - [x] EventBus tipado (sem any) e novos eventos: `cash:show`/`cash:hide`/`cash:refresh`.
@@ -182,16 +172,8 @@ Próximos passos (Caixa)
  - [x] Relatório do Caixa: movidos “Por pagamento” e “Itens mais vendidos” para dentro do card “Sessão” (conforme instrução); gráficos acima e Movimentações (Entradas/Saídas/Vendas) em card w‑full.
 
 Próximos passos imediatos
-- [ ] Criar util de moeda (`src/utils/currency.ts`) e aplicar onde houver formatação manual.
-- [ ] Revisar PINs (foco/mensagens) entre NovoPedido e Caixa para consistência.
-- [ ] Completar logs de entradas/saídas e fechamento no relatório.
 
 ## Testes & Deploy
-- [ ] Testar fluxo offline/online
-- [ ] Testar login e dashboard
-- [ ] Testar API e sincronização
-- [ ] Testar persistência após reload
-- [ ] Deploy em Vercel ou similar
 
 ## Documentação
 - [x] doc.md atualizada para registrar o painel com 4 colunas ativas + modal de Cancelados, contador por coluna e alertas de atraso (>15min).
@@ -213,7 +195,6 @@ Próximos passos imediatos
 - [x] Dashboard agora só consome API/IndexedDB (sem carregar mock.json automaticamente)
 - [x] Modal de detalhes separado como componente, com montagem/desmontagem e animações de entrada/saída, carregando pelo ID do pedido.
 - [x] Removido "Status de Pagamento" do modal de detalhes; mantido campo de Troco com salvar.
-- [ ] Ajustar edição de pagamento fora do modal (quando aplicável) – a validar com cliente.
  - [x] Background de ícones removido; aguardando imagem de fundo do cliente para aplicar como cover otimizado em `_app`.
  - [x] Sons sutis (hover nas seções e submit do PIN) na página pública do pedido.
  - [x] Componente `BgFood` removido do projeto a pedido do cliente.
@@ -241,8 +222,6 @@ Próximos passos imediatos
 
 Próximos passos (Novo Pedido)
 - [x] Chips de categoria dinâmicas com base nas categorias ativas da API.
-- [ ] Mensagem/estado de vazio e loading explícitos no catálogo (placeholder e skeletons).
-- [ ] Geração de ID personalizado (1 dígito + 1 letra + 4 dígitos) ao criar pedido.
 
 ## UI/Hidratação
 - [x] NavTop: removida leitura de `location.pathname` no SSR; agora ativa os botões de navegação após mount para evitar hydration mismatch. Correção específica no botão “Geral” (dashboard) e “Cozinha” (usa query `view=cozinha`).
@@ -386,9 +365,6 @@ Próximos passos (Novo Pedido)
 - [x] PIN Modal: ajustes para validação real (aguarda retorno booleano) na criação de usuário; exibe mensagens de erro ao PIN incorreto.
 
  Próximos passos (Usuários)
- - [ ] Filtros por tipo/status e ordenação por criação/nome (client-side; backend já suporta).
- - [ ] Soft delete/desativação com badges e logs.
- - [ ] Ajustar Dashboard para ler `user.board.columns` e compor as colunas dinamicamente (mantendo mapeamento para status padrão quando ausentes).
 - [x] Gráficos do relatório com Recharts (client-only): linha/área para Vendas por hora, donut para Mix por pagamento, barras horizontais para Top itens e barras agrupadas para Entradas x Saídas. Paleta sólida alinhada ao tema.
 - [x] Recharts: trocado Vendas por hora para barras; criado ChartContainer com ResizeObserver para eliminar warnings de width/height; wrappers h-36 + min-w-0 aplicados; listas de Movimentações simplificadas (data+valor/id).
 ## Atualização 13/11/2025 — Caixa, Pedidos, Feedback
@@ -402,48 +378,63 @@ Próximos passos (Novo Pedido)
 - [x] Admin/Feedback (view): página `/admin/feedback` com cards (total e médias) e lista dos últimos; filtro 7/30/90 dias.
 
 Próximos passos rápidos
-- [ ] Ajustar rótulos de entrega (MOTOBOY/RETIRADA/TRANSPORTADORA/OUTRO) unificando exibição nas telas e relatórios.
-- [ ] Card COMPLETO: opcional exibir chip de evento se houver (consistente com cards das colunas ativas).
-- [ ] Auditoria de logs para estornos de taxa (entrada separada em `logs` sem poluir `saidas`).
+- Todos os itens em aberto foram consolidados abaixo; siga o resumo imediato antes de mergulhar no checklist completo.
+
+## Próximos passos imediatos
+1. Com o ID/hook entregues, focar no restante do core de pedidos: autocomplete/layout mobile do Novo Pedido, placeholders do catálogo, rótulos/colunas dinâmicas e o fluxo de pagamento PENDENTE→método (incluindo acúmulo e edição fora do modal).
+2. Entregar os reforços do Admin (cards/métricas em `/api/caixa`, filtros/soft delete de usuários e edição de clientes) junto da revisão de PINs/tema para manter consistência entre telas.
+3. Completar a camada de segurança/offline: organizar `/public`, aplicar middleware/guards, sanitização e rate-limit de PIN antes de liberar o QA.
+4. Executar a bateria de testes (Postman, `/api/testesgeral`, cenários offline/público) e preparar o deploy em Vercel assim que os itens acima estiverem validados.
 
 ## MVP1 — Itens faltantes (Checklist consolidado)
-- [ ] Theme/UX: auditar componentes (CaixaSection, modais, público) e remover cores hard‑coded. Usar tokens `theme-surface`, `theme-border`, `theme-text`. Finalizar página pública (dark base + laranja/amarelo), micro animações sutis.
 - [x] Sons: adicionar toggle global em Config (`config.sounds`) e respeitar no `playUiSound` em todo app.
-- [ ] Cards/Métricas Admin: “Vendas hoje”, “Pedidos”, “Ticket médio”, “Pagamento mais usado”, “Top 3” a partir de `GET /api/caixa` (sem joins, leves).
 - [x] Produtos UI: filtros (ativo/promo/stock/categoria) e paginação. Exibir preço promo somente quando ativo.
 - [x] Categorias UI: exibir contagem de produtos (usar `withCounts=1`).
-- [ ] Clientes UI: implementar edição (PUT) com máscaras e dedupe (erros inline) e PIN no UI.
-- [ ] Pedidos: ID personalizado (1 dígito + 1 letra + 4 dígitos) coerente front/back.
-- [ ] Pagamento no UI: fluxo PENDENTE → método (DINHEIRO/CARTAO/PIX) com recálculo de `porPagamento` e totais.
 - [x] Caixa UI: abrir com base inicial (já suportado pela API). Exibir contexto (abertura/fechamento/dias/tenantType) na CaixaSection.
 - [x] Relatório: snapshot simples da sessão atual para página de relatório; layout e tema refinados.
-- [ ] Segurança: rate limit simples em rotas sensíveis a PIN (p. ex., 5 tentativas/min por IP).
-- [ ] Segurança: sanitização de chaves com `$`/`.` nos payloads (público/admin), e validações extras de inputs.
-- [ ] Segurança: revalidar guardas SSR/CSR para páginas admin e esconder ações por perfil (type/status).
-- [ ] Offline‑first (se entrar no MVP1): cache leve (catálogo/categorias) e fila offline para pedidos com sync básico na reconexão.
-- [ ] Testes/Docs: estender `/api/testesgeral` p/ validar novos comportamentos; atualizar `tests.md` com checklist humano; ilustrar responsividade (sm/md/lg) quando possível.
 
 ## Pendências consolidadas — MVP1 (para revisarmos ao acordar)
-- Acessibilidade: foco/ARIA e áreas clicáveis amplas; validar sm/md/lg no navegador.
-- Pedidos: ID personalizado (1 dígito + 1 letra + 4 dígitos) end‑to‑end.
-- Pagamento no UI: transição PENDENTE → método com impacto em `porPagamento`/totais; ajustar acúmulo apenas quando PAGO.
-- Admin métricas: cards “Vendas hoje/Pedidos/Ticket/Pagamento/Top3” consumindo `GET /api/caixa` (sem simulação).
-- Categorias UI: contagem de produtos (`withCounts=1`).
-- Clientes UI: edição (PUT) com máscaras e dedupe com erros inline + PIN.
-- Segurança: rate‑limit rotas de PIN (ex.: 5/min por IP) e sanitização global de chaves `$`/`.`.
-- Guards: revalidar SSR/CSR e esconder ações por perfil (type/status) em todas as páginas admin.
-- Novo Pedido: skeletons/estado de vazio explícitos no catálogo.
-- Clean code: extrair util de atualização de status do pedido e reduzir “faz‑tudo”.
-- Logs: completar logs de entradas/saídas e de fechamento no relatório, e auditoria de estorno de taxa (log separado).
-- Offline‑first (opcional no MVP1): cache leve e fila de pedidos.
-- Testes: estender `/api/testesgeral` para (Config→UI, produtos por categoria específica, rate‑limit opcional) e cobrir ID personalizado / PENDENTE→método quando implementados.
+### Core Produto & Pedidos
+- [x] Implementar o ID personalizado (1 dígito + 1 letra + 4 dígitos) no front/back com validação de dados e unicidade antes de salvar (gerador compartilhado + verificação de duplicidade na API).
+- [x] Extrair o util de atualização de status (drag/ações) e mapear as funções “faz-tudo” restantes para helpers dedicados (hook `usePedidoStatusUpdater` agora centraliza o fluxo).
+- [ ] Modal Novo Pedido: autocomplete de cliente, layout mobile com sumário fixo + catálogo rolável e remoção do header legado.
+- [ ] Novo Pedido: exibir placeholder/estado vazio e skeletons no catálogo enquanto os itens carregam.
+- [ ] Fluxo de pagamento: transição PENDENTE → método (DINHEIRO/CARTAO/PIX), acúmulo somente quando marcado como PAGO e edição segura fora do modal.
+- [ ] Dashboard: montar colunas via `user.board.columns`, ajustar rótulos de entrega e adicionar chip opcional de evento nos cards COMPLETO.
+
+### Admin, Clientes & Relatórios
+- [ ] Cards/Métricas do Admin (“Vendas hoje”, “Pedidos”, “Ticket médio”, “Pagamento mais usado”, “Top 3”) consumindo `GET /api/caixa` real.
+- [ ] Clientes UI: habilitar edição (PUT) com máscaras, dedupe e validação por PIN direto no modal.
+- [ ] Usuários: filtros por tipo/status, ordenação por criação/nome e soft delete/desativação com badges + logs.
+
+### UX, Design System & Config
+- [ ] Theme/UX audit em CaixaSection, modais e página pública garantindo uso dos tokens `theme-surface`, `theme-border`, `theme-text`.
+- [ ] Adotar o design system documentado para componentes compartilhados (cards, inputs, modais) eliminando variações ad hoc.
+- [ ] Criar `src/utils/currency.ts` e substituir formatações manuais por esse helper.
+- [ ] Revisar o fluxo/mensagens de PIN entre NovoPedido e Caixa para manter foco e feedback consistentes.
+
+### Segurança, Plataforma & Offline
+- [ ] Organizar `/public` (assets, manifest, ícones, service worker) para preparar o PWA/branding final.
+- [ ] Middleware/guard para checar `users` por página (type/status) sem depender somente da sessão.
+- [ ] Aplicar rate limit simples (ex.: 5/min/IP) nas rotas sensíveis a PIN.
+- [ ] Sanitizar chaves com `$`/`.` nos payloads (público/admin) e reforçar validações.
+- [ ] Revalidar guardas SSR/CSR e esconder ações conforme perfil (type/status).
+- [ ] Offline-first: cache leve (catálogo/categorias) e fila offline para pedidos com sync ao reconectar.
+
+### Logs & Observabilidade
+- [ ] Completar logs de entradas/saídas e fechamento no relatório, garantindo consistência com a sessão do caixa.
+- [ ] Auditoria específica para estornos de taxa (entrada separada em `logs` sem poluir `saidas`).
+
+### QA, Testes & Deploy
+- [ ] Testar endpoints críticos no Postman e validar API/sincronização, incluindo o ciclo offline → online.
+- [ ] Exercitar manualmente login/dashboard, fluxo completo e persistência após reload.
+- [ ] Estender `/api/testesgeral` + `tests.md` para os novos comportamentos e rodar `GET /api/testesgeral?stream=1&save=1` até ter relatórios verdes.
+- [ ] Validar visualmente os temas (tokens), responsividade (sm/md/lg), foco/ARIA e conferir métricas do Admin contra `GET /api/caixa`.
+- [ ] Testar a página pública `/pedido/[id]` (PIN correto/incorreto e expiração >1h) e forçar casos de erro: preço negativo, oversell, entrada negativa, delete de categoria com produtos, payload com `$set`, sessão pausada/fechada e auto-suspensão.
+- [ ] Preparar o deploy em Vercel (ou similar) após o QA completo.
 
 ## MVP1 — Validação manual (use junto com tests.md)
-- [ ] Rodar sequência em `GET /api/testesgeral?stream=1&save=1` e confirmar tudo verde no último relatório em `test-reports/`.
-- [ ] Validar visualmente: tema (cores tokens), responsividade (sm/md/lg), foco/ARIA, bloqueios/erros inline.
-- [ ] Confirmar métricas do Admin batendo com `GET /api/caixa` (vendas, entradas/saídas, porPagamento, top3 positivos).
-- [ ] Testar público: PIN 1111 ok; PIN incorreto 403; expiração pós‑COMPLETO em 1h (endpoint retorna 410 após simular `COMPLETO` antigo).
-- [ ] Forçar casos de erro: preço negativo (400), oversell (409), entrada negativa (400), delete categoria com produtos (400), payload com `$set` (400), sessão pausada/fechada (409/401) e auto‑suspensão (400).
+Consulte a subseção “QA, Testes & Deploy” acima; ela concentra o checklist atualizado que deve ser executado junto do `tests.md` antes do handoff.
 
 ## MVP1 — Concluídos (automatizados)
 - [x] users:check válido/400/404; ensure‑admin
