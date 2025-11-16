@@ -18,10 +18,17 @@ export default function Home() {
   const inputsRef = useRef<Array<HTMLInputElement | null>>([null, null, null, null, null, null, null]);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Garante admin padrão (apenas em desenvolvimento, uma vez)
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    seededRef.current = true;
+    if (process.env.NODE_ENV !== 'development') return;
+    fetch('/api/users/ensure-admin').catch(()=>{});
+  }, []);
+
   // Redireciona quando autenticado
   useEffect(() => {
-    // Garante admin padrão se não existir
-    fetch('/api/users/ensure-admin').catch(()=>{});
     if (status === "authenticated") {
       const s = session as unknown as { user?: { status?: number } } | null;
       const st = s?.user?.status ?? 1;
