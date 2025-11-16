@@ -8,6 +8,13 @@ export type PedidoItem = string | {
   icon?: string;
 };
 
+export type KitchenStage = {
+  stage: 'EM_AGUARDO' | 'EM_PREPARO' | 'PRONTO';
+  startedAt: string;
+  finishedAt?: string;
+  durationMs?: number;
+};
+
 export type Cliente = {
   id: string;
   nick: string;
@@ -37,6 +44,7 @@ export type Pedido = {
   motoboy?: string; // opcional (simulado)
   fidelidade?: { enabled: boolean; evento?: string };
   awards?: Array<{ ev?: string; v?: number; at?: string }>; // lançamentos de pontos vinculados
+  kitchenStages?: KitchenStage[];
 };
 
 const DB_NAME = 'pdvburgues';

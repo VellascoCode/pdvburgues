@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@/lib/mongodb';
 import { getCurrentUser } from '@/lib/authz';
 import type { EventoDoc } from './index';
+import { containsUnsafeKeys } from '@/lib/payload';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { key } = req.query as { key: string };
@@ -10,6 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'PUT') {
     const me = await getCurrentUser(req, res);
     if (!me || me.type !== 10 || me.status !== 1) return res.status(401).json({ error: 'não autorizado' });
+    if (containsUnsafeKeys(req.body)) return res.status(400).json({ error: 'payload inválido' });
     const body = req.body as Partial<EventoDoc>;
     const update: Partial<EventoDoc> = {};
     if (typeof body.titulo === 'string') update.titulo = body.titulo.trim();
@@ -30,6 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'DELETE') {
     const me = await getCurrentUser(req, res);
     if (!me || me.type !== 10 || me.status !== 1) return res.status(401).json({ error: 'não autorizado' });
+    if (containsUnsafeKeys(req.body)) return res.status(400).json({ error: 'payload inválido' });
     const r = await col.updateOne({ key, deletado: { $ne: true } }, { $set: { deletado: true, active: false, updatedAt: new Date().toISOString() } });
     if (!r.matchedCount) return res.status(404).json({ error: 'não encontrado' });
     return res.status(200).json({ ok: true });
@@ -37,4 +40,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader('Allow', 'PUT, DELETE');
   return res.status(405).end();
 }
-

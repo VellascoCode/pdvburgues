@@ -40,9 +40,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (String(code) !== expected) return res.status(403).json({ error: 'PIN inválido' });
 
   // Only accepts if classificacao does not exist or is zero for all
+  type FeedbackSnapshot = { pedido?: number; sistema?: number; atendimento?: number; entrega?: number; cls?: number[] };
+  const feedbackSnapshot = (doc.feedback || {}) as FeedbackSnapshot;
   const hasClassificacao = doc.classificacao && (Number(doc.classificacao['1']||0)>0 || Number(doc.classificacao['2']||0)>0 || Number(doc.classificacao['3']||0)>0);
-  const hasFeedbackLegacy = doc.feedback && ((doc.feedback.pedido || doc.feedback.sistema) || doc.feedback.atendimento || doc.feedback.entrega);
-  const hasFeedbackArray = doc.feedback && Array.isArray((doc as any).feedback.cls) && (doc as any).feedback.cls.some((n: unknown)=> Number(n)>0);
+  const hasFeedbackLegacy = Boolean(feedbackSnapshot.pedido || feedbackSnapshot.sistema || feedbackSnapshot.atendimento || feedbackSnapshot.entrega);
+  const hasFeedbackArray = Array.isArray(feedbackSnapshot.cls) && feedbackSnapshot.cls.some((n: unknown)=> Number(n)>0);
   const already = Boolean(hasClassificacao || hasFeedbackLegacy || hasFeedbackArray);
   if (already) return res.status(409).json({ error: 'voto já registrado', classificacao: doc.classificacao, feedback: doc.feedback });
 
@@ -54,10 +56,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   await db.collection('feedback').insertOne({ pid: id, at, cls: clsArr });
   // Atualizar snapshot no documento de caixa (completos[].cls) para evitar join no relatório
   try {
+    const arrayFilters: Array<{ 'c.id': string }> = [{ 'c.id': id }];
     await db.collection('cash').updateMany(
       { 'completos.id': id },
       { $set: { 'completos.$[c].cls': clsArr } },
-      { arrayFilters: [{ 'c.id': id }] as any }
+      { arrayFilters }
     );
   } catch {}
   return res.status(200).json({ ok: true, feedback: { at, cls: clsArr } });

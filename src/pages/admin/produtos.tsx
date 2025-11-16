@@ -17,6 +17,8 @@ import { FaBoxOpen, FaEye, FaEyeSlash } from 'react-icons/fa';
 import ProductsList, { ProductListItem } from '@/components/admin/ProductsList';
 //
 import { playUiSound } from '@/utils/sound';
+import { PrepTag, DEFAULT_PREP_TAG } from '@/constants/prepTags';
+import type { ProductPrepItem } from '@/types/product';
 
 type Categoria = 'burger'|'bebida'|'pizza'|'hotdog'|'sobremesa'|'frango'|'veg';
 // IconKey agora vem do módulo compartilhado de ícones
@@ -36,6 +38,8 @@ type AdminProduct = {
   cor: string; // tailwind class p/ ícone
   bg: string;  // tailwind class p/ fundo
   catInactive?: boolean;
+  prepTag: PrepTag;
+  prepItems?: ProductPrepItem[];
 };
 
 // ICONS/FOOD_KEYS movidos para '@/components/food-icons'
@@ -101,22 +105,24 @@ export default function AdminProdutos() {
       .then((resp: { items: ApiProduct[]; total: number; page: number; pageSize: number }) => {
         const items = resp.items || [];
         const inactiveKeys = new Set((catOptions||[]).filter(c => c.active === false).map(c=> String(c.key)));
-        const map: AdminProduct[] = items.map((d) => ({
-          id: String(d._id || d.id),
-          nome: d.nome!,
-          categoria: d.categoria as Categoria,
-          preco: Number(d.preco),
+          const map: AdminProduct[] = items.map((d) => ({
+            id: String(d._id || d.id),
+            nome: d.nome!,
+            categoria: d.categoria as Categoria,
+            preco: Number(d.preco),
           promo: typeof d.promo === 'number' ? d.promo : undefined,
           promoAtiva: Boolean(d.promoAtiva),
           ativo: Boolean(d.ativo),
           combo: Boolean(d.combo),
           desc: d.desc || '',
           stock: (typeof d.stock === 'number' || d.stock === 'inf') ? d.stock : 0,
-          iconKey: (d.iconKey as IconKey) ?? 'hamburger',
-          cor: d.cor || 'text-orange-400',
-          bg: d.bg || 'bg-orange-900/20',
-          catInactive: inactiveKeys.has(String(d.categoria)),
-        }));
+            iconKey: (d.iconKey as IconKey) ?? 'hamburger',
+            cor: d.cor || 'text-orange-400',
+            bg: d.bg || 'bg-orange-900/20',
+            catInactive: inactiveKeys.has(String(d.categoria)),
+            prepTag: (d as unknown as { prepTag?: PrepTag }).prepTag || DEFAULT_PREP_TAG,
+            prepItems: (d as unknown as { prepItems?: ProductPrepItem[] }).prepItems || [],
+          }));
         setProdutos(map);
         setTotal(resp.total || map.length);
       })
@@ -146,13 +152,15 @@ export default function AdminProdutos() {
         promo: saved.promo,
         promoAtiva: saved.promoAtiva,
         ativo: saved.ativo,
-        combo: saved.combo,
-        desc: saved.desc,
-        stock: saved.stock,
-        iconKey: saved.iconKey,
-        cor: saved.cor,
-        bg: saved.bg,
-      };
+      combo: saved.combo,
+      desc: saved.desc,
+      stock: saved.stock,
+      iconKey: saved.iconKey,
+      cor: saved.cor,
+      bg: saved.bg,
+      prepTag: saved.prepTag || DEFAULT_PREP_TAG,
+      prepItems: saved.prepItems || [],
+    };
       setProdutos(prev => [novo, ...prev]);
     } catch {
       // opcional: toast de erro

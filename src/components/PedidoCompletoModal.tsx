@@ -52,15 +52,15 @@ export default function PedidoCompletoModal({ open, id, onClose }: { open: boole
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-labelledby="pedido-completo-title">
-          <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-          <motion.div ref={dialogRef} initial={{ y: 16, scale: 0.98 }} animate={{ y:0, scale:1 }} exit={{ y: 16, opacity: 0 }} className="relative bg-zinc-900 rounded-2xl border border-zinc-800 w-full max-w-md overflow-hidden theme-surface theme-border">
-            <div className="p-5 border-b border-zinc-800 bg-green-500/10">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+          <motion.div ref={dialogRef} initial={{ y: 16, scale: 0.98 }} animate={{ y:0, scale:1 }} exit={{ y: 16, opacity: 0 }} className="relative ds-modal w-full max-w-md overflow-hidden">
+            <div className="ds-modal-header p-5 border-b bg-green-500/10">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 id="pedido-completo-title" className="text-lg font-bold text-green-300">Pedido Completo</h3>
                   <p className="text-xs text-green-200/80">{pedido ? `#${pedido.id}` : ''}</p>
                 </div>
-                <button ref={closeRef} className="px-2 py-1 rounded-lg border border-green-700/50 text-green-200 hover:bg-green-600/10" onClick={onClose}>Fechar</button>
+                <button ref={closeRef} className="px-2 py-1 rounded-lg border border-green-600/60 text-green-100 hover:bg-green-500/10 transition" onClick={onClose}>Fechar</button>
               </div>
             </div>
             <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
@@ -95,7 +95,7 @@ export default function PedidoCompletoModal({ open, id, onClose }: { open: boole
                       ))}
                     </div>
                   </div>
-                  <div className="flex items-center justify-between text-sm font-semibold border-t border-zinc-800 pt-2">
+                  <div className="flex items-center justify-between text-sm font-semibold border-t theme-border pt-2">
                     <span className="text-zinc-300">Total</span>
                     <span className="text-emerald-400">R$ {Number(pedido.total || 0).toFixed(2)}</span>
                   </div>
@@ -108,4 +108,3 @@ export default function PedidoCompletoModal({ open, id, onClose }: { open: boole
     </AnimatePresence>
   );
 }
-

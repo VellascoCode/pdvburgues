@@ -7,6 +7,34 @@ import { getDb } from '@/lib/mongodb';
 // - If status is COMPLETO, access expires 1 hour after completion
 // - Returns a minimal, safe projection of the order
 
+type PublicItem = string | { nome?: string; quantidade?: number; preco?: number | string };
+type PublicPedidoPayload = {
+  id: string;
+  status?: string;
+  itens: PublicItem[];
+  entrega: string | null;
+  pagamento: string | null;
+  troco: number | null;
+  timestamps: Record<string, string>;
+  total?: number;
+  observacoes?: string;
+  feedback?: { pedido: number; atendimento: number; entrega: number; at?: string };
+  classificacao?: { '1': number; '2': number; '3': number };
+  awards?: Array<{ ev?: string; v?: number; at?: string }>;
+  cliente?: {
+    nick?: string;
+    nome?: string;
+    endereco?: {
+      rua?: string;
+      numero?: string;
+      bairro?: string;
+      cidade?: string;
+      uf?: string;
+      complemento?: string;
+    };
+  };
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -40,12 +68,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch {}
 
   // Minimal safe payload + safe customer snapshot (if available)
-  type Item = string | { nome?: string; quantidade?: number; preco?: number | string };
-  const itens = Array.isArray(doc.itens) ? (doc.itens as Item[]).map((it) => {
+  const itens = Array.isArray(doc.itens) ? (doc.itens as PublicItem[]).map((it) => {
     if (typeof it === 'string') return it;
     return { nome: it.nome, quantidade: it.quantidade, preco: it.preco };
   }) : [];
-  const payload: any = {
+  const payload: PublicPedidoPayload = {
     id: doc.id,
     status: doc.status,
     itens,
@@ -55,9 +82,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     timestamps: doc.timestamps || {},
     total: typeof doc.total === 'number' ? doc.total : undefined,
     observacoes: typeof doc.observacoes === 'string' ? String(doc.observacoes).slice(0, 2000) : undefined,
-    feedback: undefined as unknown,
-    classificacao: undefined as unknown,
-    awards: undefined as unknown,
   };
   // expose classificacao as { '1': n, '2': n, '3': n }
   try {
@@ -80,10 +104,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } catch {}
   try {
-    if ((doc as any)?.awards && Array.isArray((doc as any).awards) && (doc as any).awards.length) {
-      payload.awards = (doc as any).awards.map((a: any) => ({ ev: a.ev, v: Number(a.v||1), at: a.at }));
-    } else if ((doc as any)?.fidelidade?.enabled && (doc as any)?.fidelidade?.evento) {
-      payload.awards = [{ ev: (doc as any).fidelidade.evento, v: 1 }];
+    const awards = Array.isArray(doc.awards)
+      ? (doc.awards as Array<{ ev?: string; v?: number; at?: string }>)
+      : undefined;
+    if (awards && awards.length) {
+      payload.awards = awards.map((a) => ({ ev: a.ev, v: Number(a.v || 1), at: a.at }));
+    } else if (doc.fidelidade?.enabled && doc.fidelidade.evento) {
+      payload.awards = [{ ev: doc.fidelidade.evento, v: 1 }];
     }
   } catch {}
   try {

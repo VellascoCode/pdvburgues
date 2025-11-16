@@ -66,9 +66,9 @@ function ModalContent({ onClose, onConfirm }: { onClose: () => void; onConfirm: 
   return (
     <>
       <motion.div className="fixed inset-0 z-70 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-        <div className="absolute inset-0 bg-black" onClick={close} />
-        <motion.div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border theme-border theme-surface bg-zinc-900 shadow-2xl" initial={{ y: 24, scale: 0.96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 24, scale: 0.96 }}>
-          <div className="sticky top-0 z-10 theme-surface bg-zinc-900 border-b theme-border px-6 py-4 flex items-center gap-2">
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={close} />
+        <motion.div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto ds-modal" initial={{ y: 24, scale: 0.96 }} animate={{ y: 0, scale: 1 }} exit={{ y: 24, scale: 0.96 }}>
+          <div className="sticky top-0 z-10 ds-modal-header px-6 py-4 flex items-center gap-2 border-b">
             <FaUserPlus className="text-zinc-400" />
             <h2 className="text-white font-semibold text-lg">Criar Usuário</h2>
           </div>
@@ -77,15 +77,15 @@ function ModalContent({ onClose, onConfirm }: { onClose: () => void; onConfirm: 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs text-zinc-400 flex items-center gap-2"><FaIdBadge className="text-zinc-400" /> Access ID (3 dígitos)</span>
-                  <input value={access} onChange={(e)=> setAccess(e.target.value.replace(/\D/g,'').slice(0,3))} inputMode="numeric" maxLength={3} className="rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="000" />
+                  <input value={access} onChange={(e)=> setAccess(e.target.value.replace(/\D/g,'').slice(0,3))} inputMode="numeric" maxLength={3} className="ds-input" placeholder="000" />
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className="text-xs text-zinc-400">Nome</span>
-                  <input value={nome} onChange={(e)=> setNome(e.target.value)} className="rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Ex: Maria Souza" />
+                  <input value={nome} onChange={(e)=> setNome(e.target.value)} className="ds-input" placeholder="Ex: Maria Souza" />
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs text-zinc-400 flex items-center gap-2"><FaUserTag className="text-zinc-400" /> Nick</span>
-                  <input value={nick} onChange={(e)=> setNick(e.target.value)} className="rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Ex: Mari" />
+                  <input value={nick} onChange={(e)=> setNick(e.target.value)} className="ds-input" placeholder="Ex: Mari" />
                 </label>
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs text-zinc-400 flex items-center gap-2"><FaTransgender className="text-zinc-400" /> Gênero</span>
@@ -99,7 +99,7 @@ function ModalContent({ onClose, onConfirm }: { onClose: () => void; onConfirm: 
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs text-zinc-400 flex items-center gap-2"><FaShieldAlt className="text-zinc-400" /> Tipo</span>
-                  <select value={type} onChange={(e)=> setType(Number(e.target.value))} className="rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500">
+                  <select value={type} onChange={(e)=> setType(Number(e.target.value))} className="ds-input">
                     <option value={1}>Operador (1)</option>
                     <option value={5}>Gerente (5)</option>
                     <option value={10}>Admin Master (10)</option>
@@ -108,7 +108,7 @@ function ModalContent({ onClose, onConfirm }: { onClose: () => void; onConfirm: 
                 {/* Status removido: sempre "novo" ao criar */}
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className="text-xs text-zinc-400 flex items-center gap-2"><FaBriefcase className="text-zinc-400" /> Função</span>
-                  <input value={funcao} onChange={(e)=> setFuncao(e.target.value)} className="rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Ex: Caixa, Cozinha, Gerente" />
+                  <input value={funcao} onChange={(e)=> setFuncao(e.target.value)} className="ds-input" placeholder="Ex: Caixa, Cozinha, Gerente" />
                   <div className="flex flex-wrap gap-2 mt-1">
                     {roleSuggestions.map(r => (
                       <button type="button" key={r} className="text-[11px] px-2 py-1 rounded-md border theme-border text-zinc-300 hover:bg-zinc-800" onClick={()=> setFuncao(r)}>{r}</button>
@@ -117,7 +117,7 @@ function ModalContent({ onClose, onConfirm }: { onClose: () => void; onConfirm: 
                 </label>
                 <label className="flex flex-col gap-1.5 sm:col-span-2">
                   <span className="text-xs text-zinc-400 flex items-center gap-2"><FaMapMarkerAlt className="text-zinc-400" /> Espaço de trabalho</span>
-                  <input value={workspace} onChange={(e)=> setWorkspace(e.target.value)} className="rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="Ex: cozinha, caixa, atendimento, expedição" />
+                  <input value={workspace} onChange={(e)=> setWorkspace(e.target.value)} className="ds-input" placeholder="Ex: cozinha, caixa, atendimento, expedição" />
                   <div className="flex flex-wrap gap-2 mt-1">
                     {workspaceSuggestions.map(w => (
                       <button type="button" key={w} className="text-[11px] px-2 py-1 rounded-md border theme-border text-zinc-300 hover:bg-zinc-800" onClick={()=> setWorkspace(w)}>{w}</button>
@@ -126,13 +126,13 @@ function ModalContent({ onClose, onConfirm }: { onClose: () => void; onConfirm: 
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs text-zinc-400 flex items-center gap-2"><FaKey className="text-zinc-400" /> PIN inicial (4 dígitos)</span>
-                  <input value={newPin} onChange={(e)=> setNewPin(e.target.value.replace(/\D/g,'').slice(0,4))} inputMode="numeric" maxLength={4} className="rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500" placeholder="0000" />
+                  <input value={newPin} onChange={(e)=> setNewPin(e.target.value.replace(/\D/g,'').slice(0,4))} inputMode="numeric" maxLength={4} className="ds-input" placeholder="0000" />
                 </label>
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button className="px-4 py-2 rounded-lg border theme-border text-zinc-300 hover:bg-zinc-800" onClick={close}>Cancelar</button>
+              <button className="px-4 py-2 rounded-lg border theme-border text-zinc-300 hover:bg-white/5 transition" onClick={close}>Cancelar</button>
               <button className="px-4 py-2 rounded-lg brand-btn text-white disabled:opacity-50" disabled={disabled} onClick={()=> setPinModal(true)}>Salvar</button>
             </div>
           </div>

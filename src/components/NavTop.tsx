@@ -3,11 +3,12 @@ import { useTheme } from '@/context/ThemeContext';
 import { playUiSound } from '@/utils/sound';
 import { useSession } from 'next-auth/react';
 import { APP_NAME } from '@/config/app';
-import { FaBell, FaEyeSlash, FaHamburger, FaCogs, FaSignOutAlt, FaUtensils, FaTachometerAlt, FaShoppingCart, FaCashRegister, FaUsers, FaTimesCircle } from 'react-icons/fa';
+import { FaBell, FaEyeSlash, FaHamburger, FaCogs, FaSignOutAlt, FaUtensils, FaTachometerAlt, FaShoppingCart, FaCashRegister, FaTimesCircle, FaMotorcycle, FaClipboardList, FaTools } from 'react-icons/fa';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { emit } from '@/utils/eventBus';
+import { useUserMeta } from '@/hooks/useUserMeta';
 
 type Props = {
   hiddenCols: string[];
@@ -21,22 +22,8 @@ export default function NavTop({ hiddenCols, onUnhide }: Props) {
   const [openTheme, setOpenTheme] = useState(false);
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
-  const access = (session?.user as { access?: string } | undefined)?.access;
-  const [isAdmin, setIsAdmin] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    async function loadUser() {
-      if (!access) { if (alive) setIsAdmin(false); return; }
-      try {
-        const r = await fetch(`/api/users/${access}`);
-        if (!r.ok) { if (alive) setIsAdmin(false); return; }
-        const j = await r.json() as { type?: number; status?: number };
-        if (alive) setIsAdmin(Boolean(j?.type === 10 && j?.status === 1));
-      } catch { if (alive) setIsAdmin(false); }
-    }
-    loadUser();
-    return () => { alive = false; };
-  }, [access]);
+  const { meta } = useUserMeta(30000);
+  const isAdmin = Boolean(meta?.type === 10 && meta?.status === 1);
   const router = useRouter();
   const path = router.pathname;
   const search = router.asPath.includes('?') ? router.asPath.slice(router.asPath.indexOf('?')) : '';
@@ -60,7 +47,37 @@ export default function NavTop({ hiddenCols, onUnhide }: Props) {
     });
   }, []);
 
-  // busca removida do dashboard
+  const [openServiceMenu, setOpenServiceMenu] = useState(false);
+  const servicePages = [
+    {
+      href: "/cozinha",
+      title: "Cozinha",
+      description: "Fila dedicada para preparo e expedição.",
+      icon: FaUtensils,
+      accent: "text-yellow-300",
+    },
+    {
+      href: "/balcao",
+      title: "Balcão/Recepção",
+      description: "Pagamentos, retiradas e reimpressões.",
+      icon: FaClipboardList,
+      accent: "text-emerald-300",
+    },
+    {
+      href: "/despacho",
+      title: "Despacho/Entrega",
+      description: "Organize motoboys, rotas e confirmações.",
+      icon: FaMotorcycle,
+      accent: "text-sky-300",
+    },
+    {
+      href: "/oficina",
+      title: "Serviços/Oficina",
+      description: "Acompanhe orçamentos e execuções de serviços.",
+      icon: FaTools,
+      accent: "text-indigo-300",
+    },
+  ];
 
   return (
     <header className="bg-zinc-900/10 border-b border-zinc-800/50 sticky top-0 z-50 shadow-2xl theme-surface theme-border">
@@ -100,9 +117,53 @@ export default function NavTop({ hiddenCols, onUnhide }: Props) {
             <Link href="/dashboard" title="Geral" className={`p-2.5 rounded-lg border ${path==='/dashboard' && !search.includes('view=cozinha') ? 'border-emerald-600 text-emerald-300 bg-emerald-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
               <FaTachometerAlt className="text-lg" />
             </Link>
-            <Link href="/dashboard?view=cozinha" title="Cozinha" className={`p-2.5 rounded-lg border ${path==='/dashboard' && search.includes('view=cozinha') ? 'border-yellow-600 text-yellow-300 bg-yellow-600/10' : 'border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800'}`} onMouseEnter={()=>playUiSound('hover')}>
-              <FaUtensils className="text-lg" />
-            </Link>
+            <div className="relative">
+              <button
+                title="Painéis de atendimento"
+                className="p-2.5 rounded-lg border border-zinc-700 text-zinc-300 bg-zinc-800/50 hover:bg-zinc-800 flex items-center gap-2"
+                onMouseEnter={()=>playUiSound('hover')}
+                onClick={()=> { playUiSound('click'); setOpenServiceMenu(v => !v); setOpenCols(false); setOpenTheme(false); }}
+                aria-haspopup="dialog"
+                aria-expanded={openServiceMenu}
+              >
+                <FaUtensils className="text-lg" />
+                <span className="text-xs">Atendimento</span>
+              </button>
+              {openServiceMenu && (
+                <div className="absolute right-0 top-12 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-4 w-[320px] z-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Páginas operacionais</p>
+                      <p className="text-xs text-zinc-500">Escolha o painel de trabalho</p>
+                    </div>
+                    <button
+                      className="text-xs text-zinc-500 hover:text-zinc-200"
+                      onClick={()=> { playUiSound('click'); setOpenServiceMenu(false); }}
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {servicePages.map(({ href, title, description, icon: Icon, accent }) => (
+                      <Link
+                        href={href}
+                        key={href}
+                        className="flex items-start gap-3 p-3 rounded-xl border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/60 transition"
+                        onClick={()=> { playUiSound('click'); setOpenServiceMenu(false); }}
+                      >
+                        <div className={`w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center ${accent}`}>
+                          <Icon className="text-lg" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-white">{title}</p>
+                          <p className="text-xs text-zinc-500">{description}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             {(path === '/dashboard') && cashHidden && (
               <>
                 <button title="Novo Pedido" className="p-2.5 rounded-lg border border-emerald-600 text-emerald-300 bg-emerald-600/10 hover:bg-emerald-600/20" onMouseEnter={()=>playUiSound('hover')} onClick={()=> { playUiSound('click'); emit('dashboard:newPedido'); }}>
@@ -118,7 +179,7 @@ export default function NavTop({ hiddenCols, onUnhide }: Props) {
             <button
               className="px-3 py-2 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-300 border border-zinc-700 flex items-center gap-2"
               onMouseEnter={() => playUiSound('hover')}
-              onClick={() => { playUiSound('click'); setOpenCols(v => !v); setOpenTheme(false); }}
+              onClick={() => { playUiSound('click'); setOpenCols(v => !v); setOpenTheme(false); setOpenServiceMenu(false); }}
               title="Colunas ocultas"
               aria-haspopup="menu"
               aria-expanded={openCols}
@@ -129,7 +190,7 @@ export default function NavTop({ hiddenCols, onUnhide }: Props) {
             <button
               className="px-3 py-2 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 transition-all text-zinc-300 border border-zinc-700 flex items-center gap-2"
               onMouseEnter={() => playUiSound('hover')}
-              onClick={() => { playUiSound('click'); setOpenTheme(v => !v); setOpenCols(false); }}
+              onClick={() => { playUiSound('click'); setOpenTheme(v => !v); setOpenCols(false); setOpenServiceMenu(false); }}
               title="Tema e Fundo"
               aria-haspopup="menu"
               aria-expanded={openTheme}

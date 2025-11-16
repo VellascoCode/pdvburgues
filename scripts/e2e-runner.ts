@@ -1,22 +1,16 @@
-/* eslint-disable no-console */
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import fs from 'node:fs';
 import path from 'node:path';
+import { generatePedidoId } from '../src/utils/pedidoId';
 // Use require to avoid ESM resolution issues with ts-node
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const caixaHandler = require('../src/pages/api/caixa/index').default as (req: any, res: any) => Promise<void>;
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const pedidosHandler = require('../src/pages/api/pedidos/index').default as (req: any, res: any) => Promise<void>;
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const pedidoIdHandler = require('../src/pages/api/pedidos/[id]').default as (req: any, res: any) => Promise<void>;
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const feedbackHandler = require('../src/pages/api/pedidos/feedback').default as (req: any, res: any) => Promise<void>;
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const ensureAdminHandler = require('../src/pages/api/users/ensure-admin').default as (req: any, res: any) => Promise<void>;
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { createReq, createRes } = require('../tests/mockReqRes');
 
-type StepResult = { step: string; ok: boolean; status: number; data?: any; error?: any };
+type StepResult = { step: string; ok: boolean; status: number; data?: unknown; error?: unknown };
 
 async function run() {
   const startedAt = new Date();
@@ -25,8 +19,9 @@ async function run() {
   process.env.TEST_MODE = '1';
 
   // In-memory Mongo
-  const mongod = await MongoMemoryServer.create();
-  const uri = mongod.getUri();
+  let mongoServer: MongoMemoryServer | null = null;
+  mongoServer = await MongoMemoryServer.create({ instance: { ip: '127.0.0.1' } });
+  const uri = mongoServer.getUri();
   process.env.MONGODB_URI = uri;
   console.log(`[E2E] memory mongo @ ${uri}`);
 
@@ -38,7 +33,7 @@ async function run() {
     {
       const req = createReq('GET');
       const res = createRes();
-      await ensureAdminHandler(req as any, res as any);
+      await ensureAdminHandler(req, res);
       logStep({ step: 'ensure-admin', ok: (res._status||200) < 300, status: res._status||200, data: res._json });
       if ((res._status||200) >= 300) throw new Error('ensure-admin failed');
     }
@@ -48,7 +43,7 @@ async function run() {
     {
       const req = createReq('POST', { body: { action: 'abrir', pin: '1234' } });
       const res = createRes();
-      await caixaHandler(req as any, res as any);
+      await caixaHandler(req, res);
       const ok = (res._status||200) < 300 && res._json?.status === 'ABERTO' && res._json?.session?.sessionId;
       sessionId = res._json?.session?.sessionId || '';
       logStep({ step: 'caixa:abrir', ok, status: res._status||200, data: res._json });
@@ -56,7 +51,7 @@ async function run() {
     }
 
     // 2) Create order without taxa
-    const pedidoId1 = Math.random().toString(36).slice(2,8).toUpperCase();
+    const pedidoId1 = generatePedidoId();
     {
       const body = {
         id: pedidoId1,
@@ -68,7 +63,7 @@ async function run() {
       };
       const req = createReq('POST', { body });
       const res = createRes();
-      await pedidosHandler(req as any, res as any);
+      await pedidosHandler(req, res);
       const ok = (res._status||200) === 201 && res._json?.sessionId === sessionId;
       logStep({ step: 'pedido:create noTaxa', ok, status: res._status||200, data: res._json });
       if (!ok) throw new Error('create order (no taxa) failed');
@@ -78,18 +73,18 @@ async function run() {
     {
       const req = createReq('POST', { body: { action: 'entrada', pin: '1234', value: 50, desc: 'e2e: troco' } });
       const res = createRes();
-      await caixaHandler(req as any, res as any);
+      await caixaHandler(req, res);
       logStep({ step: 'caixa:entrada 50', ok: (res._status||200) < 300, status: res._status||200, data: res._json });
     }
     {
       const req = createReq('POST', { body: { action: 'saida', pin: '1234', value: 5, desc: 'e2e: consumo' } });
       const res = createRes();
-      await caixaHandler(req as any, res as any);
+      await caixaHandler(req, res);
       logStep({ step: 'caixa:saida 5', ok: (res._status||200) < 300, status: res._status||200, data: res._json });
     }
 
     // 3) Create order with taxa
-    const pedidoId2 = Math.random().toString(36).slice(2,8).toUpperCase();
+    const pedidoId2 = generatePedidoId([pedidoId1]);
     {
       const body = {
         id: pedidoId2,
@@ -102,7 +97,7 @@ async function run() {
       };
       const req = createReq('POST', { body });
       const res = createRes();
-      await pedidosHandler(req as any, res as any);
+      await pedidosHandler(req, res);
       const ok = (res._status||200) === 201 && res._json?.sessionId === sessionId && res._json?.taxaEntrega === 12.5;
       logStep({ step: 'pedido:create comTaxa', ok, status: res._status||200, data: res._json });
       if (!ok) throw new Error('create order (with taxa) failed');
@@ -112,7 +107,7 @@ async function run() {
     {
       const req = createReq('PUT', { query: { id: pedidoId2 }, body: { status: 'CANCELADO' } });
       const res = createRes();
-      await pedidoIdHandler(req as any, res as any);
+      await pedidoIdHandler(req, res);
       logStep({ step: 'pedido:cancel', ok: (res._status||200) < 300, status: res._status||200, data: res._json });
     }
 
@@ -120,7 +115,7 @@ async function run() {
     {
       const req = createReq('PUT', { query: { id: pedidoId1 }, body: { status: 'COMPLETO' } });
       const res = createRes();
-      await pedidoIdHandler(req as any, res as any);
+      await pedidoIdHandler(req, res);
       logStep({ step: 'pedido:complete', ok: (res._status||200) < 300, status: res._status||200, data: res._json });
     }
     // Need the PIN code — fallback from id digits
@@ -128,7 +123,7 @@ async function run() {
     {
       const req = createReq('POST', { body: { id: pedidoId1, code, classificacao: { '1': 5, '2': 4, '3': 5 } } });
       const res = createRes();
-      await feedbackHandler(req as any, res as any);
+      await feedbackHandler(req, res);
       logStep({ step: 'pedido:feedback', ok: (res._status||200) < 300, status: res._status||200, data: res._json });
     }
 
@@ -137,7 +132,7 @@ async function run() {
     {
       const req = createReq('GET');
       const res = createRes();
-      await caixaHandler(req as any, res as any);
+      await caixaHandler(req, res);
       caixa = res._json?.session;
       const ok = (res._status||200) < 300 && caixa?.sessionId === sessionId;
       logStep({ step: 'caixa:get', ok, status: res._status||200, data: res._json });
@@ -148,7 +143,7 @@ async function run() {
     {
       const req = createReq('POST', { body: { action: 'fechar', pin: '1234' } });
       const res = createRes();
-      await caixaHandler(req as any, res as any);
+      await caixaHandler(req, res);
       logStep({ step: 'caixa:fechar', ok: (res._status||200) < 300, status: res._status||200, data: res._json });
     }
 
@@ -177,10 +172,9 @@ async function run() {
     console.error('[E2E] failed:', e);
     process.exitCode = 1;
   } finally {
-    // shutdown memory mongo
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const mongod = (global as any)._mongod as MongoMemoryServer | undefined;
-    // the instance is kept in local variable, but ensure stop anyway
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
   }
 }
 

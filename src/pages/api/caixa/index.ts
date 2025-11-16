@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getCurrentUser } from '@/lib/authz';
 import { verifyPin } from '@/lib/security';
 import { writeLog } from '@/lib/logs';
+import { containsUnsafeKeys } from '@/lib/payload';
 
 type TotalsCents = { vendas?: number; entradas?: number; saidas?: number; porPagamento?: Record<string, number> };
 type CashDoc = {
@@ -78,6 +79,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const me = await getCurrentUser(req, res);
     const access = me?.access;
     if (!access || me?.type !== 10 || me?.status !== 1) return res.status(401).json({ error: 'não autorizado' });
+
+    if (containsUnsafeKeys(req.body)) return res.status(400).json({ error: 'payload inválido' });
 
     const { action, pin, reason, base } = req.body || {} as { action?: string; pin?: string; reason?: string; base?: number };
     if (!action) return res.status(400).json({ error: 'ação inválida' });

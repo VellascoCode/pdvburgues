@@ -4,7 +4,7 @@ import { FaEyeSlash, FaChartLine, FaPause, FaPlay, FaDoorOpen, FaDoorClosed, FaC
 import PinModal from '@/components/PinModal';
 import CaixaReportModal from '@/components/CaixaReportModal';
 import { on, off, emit } from '@/utils/eventBus';
-import { useSession } from 'next-auth/react';
+import { useUserMeta } from '@/hooks/useUserMeta';
 
 type CashTotals = { vendas: number; entradas: number; saidas: number; porPagamento: Record<string, number> };
 type CashResumo = { id: string; at: string; items: number; total: number; cliente?: string };
@@ -22,36 +22,7 @@ type CashSession = {
 type CashApi = { status: 'FECHADO'|'ABERTO'|'PAUSADO'; session: CashSession|null };
 
 export default function CaixaSection() {
-  const { data: session } = useSession();
-  const access = (session?.user as { access?: string } | undefined)?.access;
-  const [userMeta, setUserMeta] = React.useState<{ type: number; status: number } | null>(null);
-  React.useEffect(() => {
-    let alive = true;
-    async function loadUser() {
-      if (!access) { setUserMeta(null); return; }
-      try {
-        const r = await fetch(`/api/users/${access}`);
-        if (!r.ok) { if (alive) setUserMeta(null); return; }
-        const j = await r.json() as { type?: number; status?: number };
-        if (alive) setUserMeta({ type: Number(j.type || 1), status: Number(j.status || 0) });
-      } catch { if (alive) setUserMeta(null); }
-    }
-    loadUser();
-    return () => { alive = false; };
-  }, [access]);
-  React.useEffect(() => {
-    const refresh = async () => {
-      if (!access) { setUserMeta(null); return; }
-      try {
-        const r = await fetch(`/api/users/${access}`);
-        if (!r.ok) return;
-        const j = await r.json() as { type?: number; status?: number };
-        setUserMeta({ type: Number(j.type || 1), status: Number(j.status || 0) });
-      } catch {}
-    };
-    on('cash:refresh', refresh);
-    return () => { off('cash:refresh', refresh); };
-  }, [access]);
+  const { meta: userMeta } = useUserMeta(30000);
   const [cash, setCash] = React.useState<CashApi>({ status: 'FECHADO', session: null });
   const [cfg, setCfg] = React.useState<{ business?: { opened24h?: boolean; open?: string; close?: string; days?: number[] } } | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -69,6 +40,14 @@ export default function CaixaSection() {
   type ViewPedido = { criadoEm?: string; total?: number; cliente?: { nick?: string; id?: string }; itens?: ViewItem[] } | null;
   const [viewPedido, setViewPedido] = React.useState<ViewPedido>(null);
   const [viewLoading, setViewLoading] = React.useState(false);
+  const pinMessages: Record<'abrir'|'pausar'|'retomar'|'fechar'|'entrada'|'saida', string> = {
+    abrir: 'Digite o PIN do admin para abrir o caixa.',
+    pausar: 'Confirme com o PIN do admin para pausar a sessão.',
+    retomar: 'Confirme com o PIN do admin para retomar a sessão.',
+    fechar: 'Digite o PIN do admin para encerrar a sessão do caixa.',
+    entrada: 'Digite o PIN do admin para registrar esta entrada.',
+    saida: 'Digite o PIN do admin para registrar esta saída.',
+  };
 
   React.useEffect(() => {
     if (!viewPedidoId) return;
@@ -176,7 +155,6 @@ export default function CaixaSection() {
   // Gating por tipo de usuário (checado via API sempre atual)
   const isAdmin = userMeta?.type === 10 && userMeta?.status === 1;
   const isType5 = userMeta?.type === 5 && userMeta?.status === 1;
-  const isType1 = !isAdmin && !isType5;
   const canOpen = isAdmin; // Abrir caixa somente admin
   const canControl = isAdmin || isType5; // Pausar/Retomar/Entrada/Saída
   const canReport = isAdmin; // Relatório: apenas admin
@@ -199,7 +177,7 @@ export default function CaixaSection() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-        className="mb-6 rounded-2xl border theme-border theme-surface backdrop-blur-sm shadow-2xl overflow-hidden"
+        className="mb-6 rounded-2xl border theme-border theme-surface backdrop-blur-sm shadow-2xl overflow-hidden theme-text"
       >
         {/* Header com status */}
         <div className={`relative px-6 py-4 bg-linear-to-r ${visual.gradient} border-b theme-border`}>
@@ -233,7 +211,7 @@ export default function CaixaSection() {
                       value={baseInput}
                       onChange={e => setBaseInput(e.target.value)}
                       placeholder="Base inicial"
-                      className="pl-8 pr-3 py-2.5 text-sm rounded-lg border border-zinc-700/50 bg-zinc-800/50 text-zinc-200 placeholder-zinc-500 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all w-32"
+                      className="pl-8 pr-3 py-2.5 text-sm rounded-lg border theme-border theme-surface text-current placeholder-zinc-500 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all w-32"
                     />
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">R$</span>
                   </div>
@@ -450,10 +428,10 @@ export default function CaixaSection() {
                     .map(([k, v], idx) => (
                       <div key={k} className="p-3 rounded-xl theme-surface border theme-border">
                         <div className="flex items-center gap-3">
-                          <span className="w-7 h-7 rounded-full bg-zinc-700/50 flex items-center justify-center text-xs text-zinc-300 font-semibold">{idx + 1}</span>
-                          <span className="text-sm text-zinc-200 truncate">{k}</span>
+                          <span className="w-7 h-7 rounded-full theme-surface flex items-center justify-center text-xs font-semibold">{idx + 1}</span>
+                          <span className="text-sm theme-text truncate">{k}</span>
                         </div>
-                        <div className="mt-1 text-sm font-semibold text-zinc-100">{String(v)}</div>
+                        <div className="mt-1 text-sm font-semibold theme-text">{String(v)}</div>
                       </div>
                     ))}
                   {(!sess.items || Object.keys(sess.items).length === 0) && (
@@ -508,7 +486,7 @@ export default function CaixaSection() {
           : pinAction === 'saida' ? 'Confirmar Saída'
           : 'Fechar caixa'
         }
-        message={pinAction === 'fechar' ? 'Confirme para encerrar a sessão do caixa.' : undefined}
+        message={pinAction ? pinMessages[pinAction] : undefined}
         onClose={() => { setPinOpen(false); setPinAction(null); }}
         onConfirm={async (pin) => {
           if (!pinAction) return false;

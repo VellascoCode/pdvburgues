@@ -24,6 +24,8 @@ Atualização incremental
 - [x] API criação de usuário: remoção segura de pinHash sem usar any.
 - [x] Anti‑autofill no “Espaço de trabalho”: form autocomplete=off + honeypots + readOnly breve + name/id dinâmicos e sanitização (não mostra/salva e‑mail por engano). Campos do formulário agora têm id/name para evitar alertas do navegador.
 - [x] Corrigido submit involuntário do formulário no UserEditModal (onSubmit preventDefault e botões com type=button) que fechava o modal de PIN e gerava GET com query params.
+- [x] Cozinha refinada: cards agora filtram apenas itens com tags de preparo da cozinha, removem campos de pagamento/entrega, atualizam tempos automaticamente (60s) e tornam a coluna “Prontos” 100% informativa (status/badge e log por etapa, sem ações).
+- [x] Lint/build 100% verdes: tipagem completa nas APIs críticas (`/api/pedidos`, `/api/testesgeral`, helpers de produtos/cliente`) e ajuste do harness `mockReqRes` para eliminar `any`, garantindo `npm run lint` e `npm run build` sem avisos.
 
 ## Admin – Colunas (11/11/2025)
 - [x] Página substituída por placeholder “Em breve” a pedido do cliente. Mantida proteção de rota (admin logado/ativo) e tema padrão.
@@ -253,6 +255,10 @@ Próximos passos (Novo Pedido)
 - [x] Admin Produtos: visualização Cards/Lista com animações suaves, paginação e filtros, sons discretos em hover/click.
 - [x] Removidos seeds (mock) da lista, agora carregando via API.
 - [x] Modal de visualização de produto que busca dados ao abrir e desmonta ao fechar (`src/components/ProductViewModal.tsx`).
+- [x] ProdutoModal ganhou seção dedicada para “Tag de preparo”: cards em grid responsivo logo abaixo da prévia + infos básicas, com descrição clara e seleção destacada por cor.
+- [x] Produtos podem cadastrar “Itens de preparo” (nome + observação + ícone) tanto na criação quanto na edição (modal de visualização), com persistência no backend.
+- [x] Produtos sem configuração antiga recebem automaticamente etapas padrão por tag, garantindo que a cozinha tenha instruções mesmo nos cadastros legados.
+- [x] Novo Pedido: resumo exibe as etapas de preparo de cada item (até três por produto) com badge da tag, ajudando a alinhar o checklist antes de enviar.
  - [x] Configurações: página `admin/configuracoes` com lista de categorias (ícone, cor, bg) da API.
  - [x] ProdutoModal/Admin Produtos consomem categorias da API (fallback padrão).
 
@@ -381,7 +387,7 @@ Próximos passos rápidos
 - Todos os itens em aberto foram consolidados abaixo; siga o resumo imediato antes de mergulhar no checklist completo.
 
 ## Próximos passos imediatos
-1. Com o ID/hook entregues, focar no restante do core de pedidos: autocomplete/layout mobile do Novo Pedido, placeholders do catálogo, rótulos/colunas dinâmicas e o fluxo de pagamento PENDENTE→método (incluindo acúmulo e edição fora do modal).
+1. Agora que o modal do Novo Pedido recebeu autocomplete, layout responsivo e fluxo de pagamento com status, focar no último item do core: colunas dinâmicas no dashboard (user.board.columns), rótulos e chip de evento na coluna COMPLETO.
 2. Entregar os reforços do Admin (cards/métricas em `/api/caixa`, filtros/soft delete de usuários e edição de clientes) junto da revisão de PINs/tema para manter consistência entre telas.
 3. Completar a camada de segurança/offline: organizar `/public`, aplicar middleware/guards, sanitização e rate-limit de PIN antes de liberar o QA.
 4. Executar a bateria de testes (Postman, `/api/testesgeral`, cenários offline/público) e preparar o deploy em Vercel assim que os itens acima estiverem validados.
@@ -397,33 +403,41 @@ Próximos passos rápidos
 ### Core Produto & Pedidos
 - [x] Implementar o ID personalizado (1 dígito + 1 letra + 4 dígitos) no front/back com validação de dados e unicidade antes de salvar (gerador compartilhado + verificação de duplicidade na API).
 - [x] Extrair o util de atualização de status (drag/ações) e mapear as funções “faz-tudo” restantes para helpers dedicados (hook `usePedidoStatusUpdater` agora centraliza o fluxo).
-- [ ] Modal Novo Pedido: autocomplete de cliente, layout mobile com sumário fixo + catálogo rolável e remoção do header legado.
-- [ ] Novo Pedido: exibir placeholder/estado vazio e skeletons no catálogo enquanto os itens carregam.
-- [ ] Fluxo de pagamento: transição PENDENTE → método (DINHEIRO/CARTAO/PIX), acúmulo somente quando marcado como PAGO e edição segura fora do modal.
-- [ ] Dashboard: montar colunas via `user.board.columns`, ajustar rótulos de entrega e adicionar chip opcional de evento nos cards COMPLETO.
+- [x] Modal Novo Pedido: autocomplete de cliente, layout mobile com sumário fixo + catálogo rolável e remoção do header legado.
+- [x] Novo Pedido: exibir placeholder/estado vazio e skeletons no catálogo enquanto os itens carregam.
+- [x] Fluxo de pagamento: transição PENDENTE → método (DINHEIRO/CARTAO/PIX), acúmulo somente quando marcado como PAGO e edição segura fora do modal.
+- [x] Dashboard: montar colunas via `user.board.columns`, ajustar rótulos de entrega e adicionar chip opcional de evento nos cards COMPLETO.
+
+- [x] Página `/cozinha`: painel dedicado à cozinha com colunas Em Aguardo/Em Preparo (sem cancelamento) e coluna Prontos somente leitura (layout equivalente ao Completo do dashboard).
+- [x] Painel da cozinha agora auto-atualiza a cada 60s, exibe chips-resumo por tag de preparo e oculta o botão manual quando não necessário.
+- [x] Cards em modo cozinha: removidos link/cancelamento/pagamento, destaque para observações e nova lista “Itens para preparo” com tag/descrição por produto.
+- [x] Cozinha agora exibe a lista de ingredientes/etapas configurada no produto (com ícones e observações) para cada item de pedido, mesmo quando os produtos antigos ainda não foram editados.
+- [x] Cozinha refinada: cards mostram tempo por etapa (aguardo/preparo/pronto), lista única de itens e coluna de "Prontos" compacta ao estilo Completo, com botão único para envio à entrega.
+- [x] Painéis adicionais por função (MVP2): `/balcao` para recepção/pagamento, `/despacho` para entregas/motoboys e `/oficina` para serviços/execução, reaproveitando o fluxo de pedidos.
+- [x] Ajustar catálogo/Admin para editar `prepTag` e aplicar migração (defaults automáticos para produtos legados, com atualização automática nas APIs) marcando itens como cozinha para QA.
 
 ### Admin, Clientes & Relatórios
-- [ ] Cards/Métricas do Admin (“Vendas hoje”, “Pedidos”, “Ticket médio”, “Pagamento mais usado”, “Top 3”) consumindo `GET /api/caixa` real.
-- [ ] Clientes UI: habilitar edição (PUT) com máscaras, dedupe e validação por PIN direto no modal.
-- [ ] Usuários: filtros por tipo/status, ordenação por criação/nome e soft delete/desativação com badges + logs.
+- [x] Cards/Métricas do Admin (“Vendas hoje”, “Pedidos”, “Ticket médio”, “Pagamento mais usado”, “Top 3”) consumindo `GET /api/caixa` real (snapshot da sessão aberta, com ticket médio, pagamento destaque e top 3 produtos atualizados).
+- [x] Página “Contabilidade” com tabela de sessões de caixa, botão de relatório (reutilizando o modal com dados históricos) e novo endpoint `GET /api/caixa/history` protegido para listar/consultar cada sessão encerrada.
+- [x] Relatórios de caixa agora trazem dados reais mesmo em sessões antigas (fallback para `completos/entradas/saídas`) e oferecem exportação CSV direto no modal aberto pela Contabilidade.
 
 ### UX, Design System & Config
-- [ ] Theme/UX audit em CaixaSection, modais e página pública garantindo uso dos tokens `theme-surface`, `theme-border`, `theme-text`.
-- [ ] Adotar o design system documentado para componentes compartilhados (cards, inputs, modais) eliminando variações ad hoc.
-- [ ] Criar `src/utils/currency.ts` e substituir formatações manuais por esse helper.
-- [ ] Revisar o fluxo/mensagens de PIN entre NovoPedido e Caixa para manter foco e feedback consistentes.
+- [x] Theme/UX audit em CaixaSection, modais e página pública garantindo uso dos tokens `theme-surface`, `theme-border`, `theme-text` (introduzidas classes globais `ds-card`, `ds-modal`, `ds-input` aplicadas no Novo Pedido, ProdutoModal, ProductView, PedidoDetalhes/PedidoCompleto e Clientes).
+- [x] Adotar o design system documentado para componentes compartilhados (cards, inputs, modais) eliminando variações ad hoc (base de componentes consolidada nas helpers e inputs padronizados com tokens + foco consistente).
+- [x] Criar `src/utils/currency.ts` e substituir formatações manuais por esse helper.
+- [x] Revisar o fluxo/mensagens de PIN entre NovoPedido e Caixa para manter foco e feedback consistentes.
 
 ### Segurança, Plataforma & Offline
-- [ ] Organizar `/public` (assets, manifest, ícones, service worker) para preparar o PWA/branding final.
-- [ ] Middleware/guard para checar `users` por página (type/status) sem depender somente da sessão.
+- [x] Organizar `/public` (assets, manifest, ícones, service worker) para preparar o PWA/branding final.
+- [x] Middleware/guard para checar `users` por página (type/status) sem depender somente da sessão.
 - [ ] Aplicar rate limit simples (ex.: 5/min/IP) nas rotas sensíveis a PIN.
-- [ ] Sanitizar chaves com `$`/`.` nos payloads (público/admin) e reforçar validações.
-- [ ] Revalidar guardas SSR/CSR e esconder ações conforme perfil (type/status).
+- [x] Sanitizar chaves com `$`/`.` nos payloads (público/admin) e reforçar validações.
+- [x] Revalidar guardas SSR/CSR e esconder ações conforme perfil (type/status).
 - [ ] Offline-first: cache leve (catálogo/categorias) e fila offline para pedidos com sync ao reconectar.
 
 ### Logs & Observabilidade
-- [ ] Completar logs de entradas/saídas e fechamento no relatório, garantindo consistência com a sessão do caixa.
-- [ ] Auditoria específica para estornos de taxa (entrada separada em `logs` sem poluir `saidas`).
+- [x] Completar logs de entradas/saídas e fechamento no relatório, garantindo consistência com a sessão do caixa.
+- [x] Auditoria específica para estornos de taxa (entrada separada em `logs` sem poluir `saidas`).
 
 ### QA, Testes & Deploy
 - [ ] Testar endpoints críticos no Postman e validar API/sincronização, incluindo o ciclo offline → online.
@@ -449,3 +463,9 @@ Consulte a subseção “QA, Testes & Deploy” acima; ela concentra o checklist
 - [x] users allowedColumns; self‑suspend 400
 
 Observação: ao fechar o MVP1, revisar se o ID personalizado do pedido e o fluxo PENDENTE → método estão cobertos por testes (automatizado e manual).
+
+## Sugestões viáveis — próximos ciclos
+- Propagar presets de colunas por `tenant.type`/`plan` (boardPresets do MVP2) e vincular os novos painéis (`/balcao`, `/despacho`, `/oficina`) ao menu para acesso rápido conforme perfil.
+- Acrescentar agrupamento por motoboy e filtro por rota no painel de Despacho, com QR para confirmação na entrega.
+- Para serviços/oficinas, expandir o painel com campos de orçamento (valores, anexos/fotos) e formulário de aprovação antes de mover para Execução.
+- Preencher `prepItems` nos produtos legados (ou migrar via script/seed) e reaproveitar essas etapas no fluxo (Novo Pedido, expedição) para enriquecer checklists e avisos da cozinha.

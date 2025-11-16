@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { FaInfoCircle, FaEye, FaDollarSign, FaCog, FaPlus, FaPalette } from 'react-icons/fa';
+import { FaInfoCircle, FaEye, FaDollarSign, FaCog, FaPlus, FaPalette, FaClipboardList } from 'react-icons/fa';
 import { ICONS, FOOD_KEYS, IconKey } from './food-icons';
+import { PREP_TAGS, PrepTag, DEFAULT_PREP_TAG, getPrepTagMeta, getDefaultPrepItems } from '@/constants/prepTags';
+import type { ProductPrepItem } from '@/types/product';
 import PinModal from '@/components/PinModal';
 
 type Categoria = 'burger' | 'bebida' | 'pizza' | 'hotdog' | 'sobremesa' | 'frango' | 'veg';
@@ -19,6 +21,8 @@ export type NewProductData = {
   iconKey: IconKey;
   cor: string;
   bg: string;
+  prepTag: PrepTag;
+  prepItems: ProductPrepItem[];
 };
 
 interface ProdutoModalProps {
@@ -115,10 +119,39 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
   const [cor, setCor] = useState('text-orange-400');
   const [bg, setBg] = useState('bg-orange-900/20');
   const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [prepTag, setPrepTag] = useState<PrepTag>(DEFAULT_PREP_TAG);
+  const [prepItems, setPrepItems] = useState<ProductPrepItem[]>(getDefaultPrepItems(DEFAULT_PREP_TAG));
+  const [prepTouched, setPrepTouched] = useState(false);
   type CatOption = { key: Categoria; label: string; iconKey?: string; active?: boolean };
   const [catOptions, setCatOptions] = useState<CatOption[]>([]);
   const [openCat, setOpenCat] = useState(false);
   const catRef = React.useRef<HTMLDivElement | null>(null);
+  const isPronto = prepTag === 'PRONTO_ENTREGA';
+  const handlePrepTagChange = (tag: PrepTag) => {
+    setPrepTag(tag);
+    if (tag === 'PRONTO_ENTREGA') {
+      setPrepItems([]);
+      setPrepTouched(false);
+      return;
+    }
+    if (!prepTouched || prepItems.length === 0) {
+      setPrepItems(getDefaultPrepItems(tag));
+      setPrepTouched(false);
+    }
+  };
+
+  const addPrepItem = () => {
+    setPrepTouched(true);
+    setPrepItems((prev) => [...prev, { nome: '', iconKey: 'utensils', note: '' }]);
+  };
+  const updatePrepItem = (index: number, patch: Partial<ProductPrepItem>) => {
+    setPrepTouched(true);
+    setPrepItems((prev) => prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
+  };
+  const removePrepItem = (index: number) => {
+    setPrepTouched(true);
+    setPrepItems((prev) => prev.filter((_, idx) => idx !== index));
+  };
 
   // Fecha dropdown de categoria com clique fora/ESC
   useEffect(() => {
@@ -146,6 +179,18 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
   }, []);
 
   const handleSave = (pin: string) => {
+    const normalizedPrepItems =
+      prepTag === 'PRONTO_ENTREGA'
+        ? []
+        : prepItems
+            .map((item) => ({
+              nome: item.nome.trim(),
+              iconKey: item.iconKey,
+              note: item.note?.trim() || undefined,
+              externo: item.externo,
+            }))
+            .filter((item) => item.nome.length > 0)
+            .slice(0, 10);
     onConfirm({
       nome,
       categoria,
@@ -159,6 +204,8 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
       iconKey,
       cor,
       bg,
+      prepTag,
+      prepItems: normalizedPrepItems,
     }, pin);
     onClose();
   };
@@ -174,14 +221,14 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        <div className="absolute inset-0 bg-black" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
         <motion.div
-          className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl border theme-border  bg-zinc-900 shadow-2xl"
+          className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto ds-modal"
           initial={{ y: 20, scale: 0.95 }}
           animate={{ y: 0, scale: 1 }}
           exit={{ y: 20, scale: 0.95 }}
         >
-          <div className="sticky top-0 z-10 theme-surface bg-zinc-900 border-b theme-border px-6 py-4">
+          <div className="sticky top-0 z-10 ds-modal-header px-6 py-4 border-b backdrop-blur">
             <div className="flex items-center gap-2">
               <FaPlus className="text-zinc-400" />
               <h2 className="text-white font-semibold text-xl">Adicionar Produto</h2>
@@ -201,13 +248,18 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                   <div className={`flex items-center justify-center py-12 ${bg}`}>
                     <IconComponent className={`${cor} w-16 h-16`} />
                   </div>
-                  <div className="p-4 bg-zinc-900">
+                <div className="p-4 ds-card">
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-semibold theme-text text-base truncate flex-1">
-                        {nome || 'Novo produto'}
-                      </h3>
-                      <span className="text-xs px-2 py-1 rounded-full border theme-border text-zinc-300 whitespace-nowrap">
-                        {categoria.toUpperCase()}
+                      <div className="flex flex-col gap-1 flex-1 min-w-0">
+                        <h3 className="font-semibold theme-text text-base truncate">
+                          {nome || 'Novo produto'}
+                        </h3>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full border theme-border text-zinc-300 w-fit">
+                          {categoria.toUpperCase()}
+                        </span>
+                      </div>
+                      <span className={`text-[11px] px-2 py-1 rounded-full border ${getPrepTagMeta(prepTag).colorClass} whitespace-nowrap`}>
+                        {getPrepTagMeta(prepTag).shortLabel}
                       </span>
                     </div>
                     <p className="text-xs text-zinc-400 line-clamp-2 mb-3">
@@ -249,7 +301,7 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                       <span className="text-xs text-zinc-400">Nome do Produto</span>
                       <input
                         type="text"
-                        className="w-full rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="w-full ds-input"
                         value={nome}
                         onChange={(e) => setNome(e.target.value)}
                         placeholder="Ex: X-Burger Especial"
@@ -259,7 +311,7 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                     <div className="flex flex-col gap-1.5">
                       <span className="text-xs text-zinc-400">Categoria</span>
                     <div className="relative" ref={catRef}>
-                      <button type="button" className="w-full rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 text-left flex items-center justify-between" onClick={()=> setOpenCat(v=>!v)}>
+                      <button type="button" className="w-full ds-input text-left flex items-center justify-between" onClick={()=> setOpenCat(v=>!v)}>
                         <span className="flex items-center gap-2">
                           {(() => { const opt = (catOptions.find(c=> c.key===categoria)); const Icon = opt?.iconKey ? ICONS[opt.iconKey as IconKey] : null; return Icon ? <Icon className="w-4 h-4 text-zinc-400" /> : null; })()}
                           {(catOptions.find(c=> c.key===categoria)?.label) || (categoria.charAt(0).toUpperCase()+categoria.slice(1))}
@@ -267,11 +319,11 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                         <span className="text-zinc-500">▾</span>
                       </button>
                         {openCat && (
-                          <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto rounded-lg border theme-border bg-zinc-900 shadow-xl">
+                          <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto ds-card shadow-xl">
                             {(catOptions.length ? catOptions.filter(c=> c.active !== false) : CATEGORIAS.map((k)=> ({ key: k as Categoria, label: k.charAt(0).toUpperCase()+k.slice(1) }))).map((c) => {
                               const Icon = (c as CatOption).iconKey ? ICONS[(c as CatOption).iconKey as IconKey] : null;
                               return (
-                                <button key={(c as CatOption).key} className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-800 flex items-center gap-2" onClick={()=> { setCategoria((c as CatOption).key); setOpenCat(false); }}>
+                                <button key={(c as CatOption).key} className="w-full text-left px-3 py-2 text-sm hover:bg-white/5 rounded-lg" onClick={()=> { setCategoria((c as CatOption).key); setOpenCat(false); }}>
                                   {Icon && <Icon className="w-4 h-4 text-zinc-400" />}
                                   {(c as CatOption).label}
                                 </button>
@@ -290,7 +342,7 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                       </span>
                       <input
                         type="text"
-                        className="w-full rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="w-full ds-input"
                         placeholder="0,00"
                         value={preco}
                         onChange={(e) => setPreco(formatCurrency(e.target.value))}
@@ -300,7 +352,7 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                     <label className="flex flex-col gap-1.5 sm:col-span-2">
                       <span className="text-xs text-zinc-400">Descrição</span>
                       <textarea
-                        className="w-full rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        className="w-full ds-input resize-none"
                         rows={3}
                         value={desc}
                         onChange={(e) => setDesc(e.target.value)}
@@ -310,6 +362,122 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Tag de preparo */}
+            <div className="mt-8 space-y-5">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2 text-zinc-300">
+                  <FaEye className="text-zinc-400" />
+                  <h3 className="text-sm font-semibold">Tag de preparo</h3>
+                </div>
+                <p className="text-xs text-zinc-500">
+                  Selecione onde o item será preparado para organizar a fila da cozinha.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {PREP_TAGS.map((tag) => (
+                  <button
+                    key={tag.key}
+                    type="button"
+                    className={`text-left px-4 py-3 rounded-2xl border transition flex flex-col gap-1 shadow-inner ${
+                      prepTag === tag.key
+                        ? `${tag.colorClass} shadow-[0_0_0_1px_rgba(16,185,129,0.3)]`
+                        : 'theme-border theme-surface text-zinc-300 hover:bg-white/5'
+                    }`}
+                    onClick={() => handlePrepTagChange(tag.key)}
+                  >
+                    <span className="text-sm font-semibold">{tag.label}</span>
+                    <span className="text-[12px] text-zinc-400">{tag.description}</span>
+                  </button>
+                ))}
+              </div>
+              <div className={`space-y-3 ${isPronto ? 'opacity-60 pointer-events-none' : ''}`}>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 text-zinc-300">
+                    <FaClipboardList className="text-zinc-400" />
+                    <h4 className="text-sm font-semibold">Itens de preparo</h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addPrepItem}
+                    className="px-3 py-1.5 text-xs rounded-lg border theme-border text-zinc-300 hover:bg-white/5 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                    disabled={prepItems.length >= 10 || isPronto}
+                  >
+                    + Adicionar item
+                  </button>
+                </div>
+                {prepItems.length === 0 ? (
+                  <p className="text-xs text-zinc-500">
+                    Nenhum item cadastrado. {isPronto ? 'Itens desabilitados para produtos prontos.' : 'Use o botão acima para listar as etapas na cozinha.'}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {prepItems.map((item, idx) => {
+                      const StepIcon = item.iconKey ? ICONS[item.iconKey] : ICONS.utensils;
+                      return (
+                        <div key={`prep-item-${idx}`} className="ds-card p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl border theme-border theme-surface flex items-center justify-center">
+                                <StepIcon className="text-amber-300 text-xl" />
+                              </div>
+                              <div>
+                                <label className="text-[11px] text-zinc-500 block mb-1">Ícone</label>
+                                <select
+                                  className="ds-input text-xs"
+                                  value={item.iconKey || 'utensils'}
+                                  onChange={(e) => updatePrepItem(idx, { iconKey: e.target.value as IconKey })}
+                                >
+                                  {FOOD_KEYS.map((key) => (
+                                    <option key={key} value={key}>
+                                      {key}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="text-xs text-red-400 hover:text-red-300"
+                              onClick={() => removePrepItem(idx)}
+                            >
+                              Remover
+                            </button>
+                          </div>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Nome do preparo</span>
+                            <input
+                              type="text"
+                              className="ds-input text-sm"
+                              value={item.nome}
+                              onChange={(e) => updatePrepItem(idx, { nome: e.target.value })}
+                              placeholder="Montar pão, fritar burger..."
+                              disabled={isPronto}
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[11px] text-zinc-500">Observação opcional</span>
+                            <input
+                              type="text"
+                              className="ds-input text-sm"
+                              value={item.note || ''}
+                              onChange={(e) => updatePrepItem(idx, { note: e.target.value })}
+                              placeholder="Ex.: usar pão brioche torrado"
+                              disabled={isPronto}
+                            />
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {isPronto && (
+                <p className="text-xs text-amber-400">
+                  Produtos marcados como “Pronto (sem preparo)” não exibem itens para a cozinha.
+                </p>
+              )}
             </div>
 
             {/* Segunda linha: seções em largura total */}
@@ -328,7 +496,7 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                     </span>
                     <input
                       type="text"
-                      className="w-full rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full ds-input"
                       placeholder="0,00"
                       value={promo}
                       onChange={(e) => setPromo(formatCurrency(e.target.value))}
@@ -364,7 +532,7 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                         type="number"
                         min="0"
                         disabled={stockInfinito}
-                        className="flex-1 rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+                        className="flex-1 ds-input disabled:opacity-50"
                         placeholder="0"
                         value={stock}
                         onChange={(e) => setStock(e.target.value)}
@@ -401,17 +569,15 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                   <FaPalette className="text-zinc-400" />
                   <h3 className="text-sm font-semibold text-zinc-300">Ícone</h3>
                 </div>
-                <div className="grid  grid-cols-12 gap-2 p-3 rounded-lg border theme-border bg-zinc-900  overflow-y-auto">
+                <div className="grid  grid-cols-12 gap-2 p-3 ds-card overflow-y-auto">
                   {FOOD_KEYS.map((key) => {
                     const Icon = ICONS[key];
                     return (
                       <button
                         key={key}
                         type="button"
-                        className={`aspect-square rounded-lg border flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 transition-all ${
-                          iconKey === key
-                            ? 'border-orange-500 ring-2 ring-orange-500/40'
-                            : 'theme-border'
+                        className={`aspect-square rounded-lg border flex items-center justify-center theme-border theme-surface hover:bg-white/5 transition-all ${
+                          iconKey === key ? 'border-orange-500 ring-2 ring-orange-500/40' : ''
                         }`}
                         onClick={() => setIconKey(key)}
                         aria-label={`Selecionar ícone ${key}`}
@@ -433,8 +599,8 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                         key={color}
                         type="button"
                         title={color}
-                        className={`h-8 rounded-lg border flex items-center justify-center transition-all ${
-                          cor === color ? 'ring-2 ring-orange-500 scale-110' : 'theme-border'
+                        className={`h-8 rounded-lg border flex items-center justify-center transition-all theme-border theme-surface ${
+                          cor === color ? 'ring-2 ring-orange-500 scale-110' : ''
                         }`}
                         onClick={() => setCor(color)}
                         aria-label={`Selecionar cor ${color}`}
@@ -453,8 +619,8 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                         key={bgColor}
                         type="button"
                         title={bgColor}
-                        className={`h-8 rounded-lg border transition-all overflow-hidden ${
-                          bg === bgColor ? 'ring-2 ring-orange-500 scale-110' : 'theme-border'
+                        className={`h-8 rounded-lg border transition-all overflow-hidden theme-border theme-surface ${
+                          bg === bgColor ? 'ring-2 ring-orange-500 scale-110' : ''
                         }`}
                         onClick={() => setBg(bgColor)}
                         aria-label={`Selecionar fundo ${bgColor}`}
@@ -465,9 +631,9 @@ function ProdutoModalContent({ onClose, onConfirm }: { onClose: () => void; onCo
                   </div>
                 </div>
               </div>
-              <div className=" border-t theme-border px-6 py-4 grid grid-cols-1 md:grid-cols-2 items-center justify-end gap-3 col-span-5">
+              <div className="border-t theme-border px-6 py-4 grid grid-cols-1 md:grid-cols-2 items-center justify-end gap-3 col-span-5 theme-surface rounded-2xl">
                 <button
-                  className="px-5 py-2 rounded-lg border theme-border text-zinc-300 hover:bg-zinc-800 transition-colors"
+                  className="px-5 py-2 rounded-lg border theme-border text-zinc-300 hover:bg-white/5 transition-colors"
                   onClick={onClose}
                 >
                   Cancelar

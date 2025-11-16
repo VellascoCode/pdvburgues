@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getCurrentUser } from '@/lib/authz';
 import { verifyPin, hashPin } from '@/lib/security';
 import { writeLog } from '@/lib/logs';
+import { containsUnsafeKeys } from '@/lib/payload';
 
 type Genero = 'M' | 'F';
 type UserDoc = {
@@ -40,6 +41,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const me = await getCurrentUser(req, res);
     const adminAccess = me?.access;
     if (!adminAccess || me?.type !== 10 || me?.status !== 1) return res.status(401).json({ error: 'não autorizado' });
+
+    if (containsUnsafeKeys(req.body)) {
+      return res.status(400).json({ error: 'payload inválido' });
+    }
 
     const body = req.body as UpdatePayload;
     const adminPin = String(body.pin || '');

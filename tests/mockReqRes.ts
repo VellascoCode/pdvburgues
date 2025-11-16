@@ -1,40 +1,55 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-export type MockRes = NextApiResponse & {
+export type MockRes<T = unknown> = NextApiResponse<T> & {
   _status?: number;
-  _json?: any;
+  _json?: T;
   _ended?: boolean;
-  _headers: Record<string, string>;
+  _headers: Record<string, string | number | string[]>;
 };
 
-export function createReq(method: string, opts?: { query?: Record<string, any>; body?: any; headers?: Record<string, string> }): NextApiRequest {
-  return {
-    method: method.toUpperCase(),
-    query: { ...(opts?.query || {}) } as any,
-    body: opts?.body,
-    headers: { ...(opts?.headers || {}) } as any,
-  } as unknown as NextApiRequest;
+type CreateReqOptions = {
+  query?: Record<string, string | string[]>;
+  body?: unknown;
+  headers?: Record<string, string>;
+};
+
+function isReadonlyStringArray(value: string | number | readonly string[]): value is readonly string[] {
+  return Array.isArray(value);
 }
 
-export function createRes(): MockRes {
-  const res: Partial<MockRes> = {
+export function createReq(method: string, opts?: CreateReqOptions): NextApiRequest {
+  return {
+    method: method.toUpperCase(),
+    query: { ...(opts?.query || {}) },
+    body: opts?.body,
+    headers: { ...(opts?.headers || {}) },
+    socket: { remoteAddress: '127.0.0.1' },
+  } as NextApiRequest;
+}
+
+export function createRes<T = unknown>(): MockRes<T> {
+  const res: Partial<MockRes<T>> = {
     _status: 200,
     _json: undefined,
     _ended: false,
     _headers: {},
-    setHeader(key: string, value: any) {
+    setHeader(key: string, value: string | number | readonly string[]) {
       const k = String(key).toLowerCase();
-      (res._headers as any)[k] = value;
-      return undefined as any;
+      if (isReadonlyStringArray(value)) {
+        res._headers![k] = [...value];
+      } else {
+        res._headers![k] = value;
+      }
+      return res as MockRes<T>;
     },
     getHeader(key: string) {
       const k = String(key).toLowerCase();
-      return (res._headers as any)[k];
+      return res._headers?.[k];
     },
-    getHeaders() { return { ...(res._headers as any) }; },
-    status(code: number) { res._status = code; return res as any; },
-    json(obj: any) { res._json = obj; res._ended = true; return undefined as any; },
-    end() { res._ended = true; return undefined as any; },
+    getHeaders() { return { ...(res._headers || {}) }; },
+    status(code: number) { res._status = code; return res as MockRes<T>; },
+    json(obj: T) { res._json = obj; res._ended = true; return res as MockRes<T>; },
+    end() { res._ended = true; return res as MockRes<T>; },
   };
-  return res as MockRes;
+  return res as MockRes<T>;
 }

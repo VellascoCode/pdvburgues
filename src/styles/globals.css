@@ -198,4 +198,48 @@ html[data-theme='code'] .bg-green-500\/10 { background-color: rgba(52,211,153,0.
 
 html[data-theme='code'] .border-red-500, html[data-theme='code'] .border-red-600 { border-color: #fb7185 !important; }
 html[data-theme='code'] .text-red-500, html[data-theme='code'] .text-red-600 { color: #fb7185 !important; }
+
+@layer components {
+  .ds-card {
+    @apply rounded-2xl border shadow-2xl;
+    background-color: var(--panel-bg);
+    border-color: var(--panel-border);
+    color: var(--text-primary);
+  }
+
+  .ds-modal {
+    @apply rounded-3xl border shadow-2xl;
+    background-color: var(--panel-bg);
+    background-color: color-mix(in srgb, var(--panel-bg) 92%, rgba(0,0,0,0.15));
+    border-color: var(--panel-border);
+    border-color: color-mix(in srgb, var(--panel-border) 92%, rgba(255,255,255,0.06));
+    color: var(--text-primary);
+    backdrop-filter: blur(24px);
+  }
+
+  .ds-modal-header {
+    border-color: var(--panel-border);
+    border-color: color-mix(in srgb, var(--panel-border) 86%, transparent);
+    background-color: var(--panel-bg);
+    background-color: color-mix(in srgb, var(--panel-bg) 88%, rgba(0,0,0,0.12));
+  }
+
+  .ds-input {
+    @apply rounded-xl border px-3 py-2 text-sm transition-all duration-150;
+    border-color: var(--panel-border);
+    border-color: color-mix(in srgb, var(--panel-border) 90%, rgba(255,255,255,0.02));
+    background-color: var(--panel-bg);
+    background-color: color-mix(in srgb, var(--panel-bg) 90%, rgba(0,0,0,0.3));
+    color: var(--text-primary);
+  }
+
+  .ds-input::placeholder {
+    color: color-mix(in srgb, var(--text-primary) 45%, transparent);
+  }
+
+  .ds-input:focus {
+    border-color: var(--brand-to);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-to) 35%, transparent);
+  }
+}
 html[data-theme='code'] .bg-red-500\/10, html[data-theme='code'] .bg-red-600\/15, html[data-theme='code'] .bg-red-600\/20 { background-color: rgba(251,113,133,0.14) !important; }

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaCheckCircle, FaClock, FaHourglassHalf, FaMotorcycle, FaTimes, FaUtensils } from 'react-icons/fa';
+import { formatCurrency } from '@/utils/currency';
 
 type PedidoItem = string | { nome: string; quantidade?: number; preco?: number|string };
 type Pedido = {
@@ -90,29 +91,29 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-labelledby="pedido-detalhes-title">
-          <div className="absolute inset-0 bg-black" onClick={onClose} />
-          <motion.div ref={dialogRef} initial={{ y: 20, scale: 0.98 }} animate={{ y:0, scale:1 }} exit={{ y: 20, opacity: 0 }} className={`relative bg-zinc-900 rounded-2xl border border-zinc-800 w-full max-w-3xl max-h-[85vh] overflow-hidden` }>
-            <div className="p-5 border-b border-zinc-800 bg-zinc-800/20">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+          <motion.div ref={dialogRef} initial={{ y: 20, scale: 0.98 }} animate={{ y:0, scale:1 }} exit={{ y: 20, opacity: 0 }} className="relative ds-modal w-full max-w-3xl max-h-[85vh] overflow-hidden">
+            <div className="ds-modal-header p-5 border-b">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 id="pedido-detalhes-title" className="text-lg font-bold text-white">{pedido ? `Pedido #${pedido.id}` : 'Pedido'}</h3>
                   {pedido && <p className="text-xs text-zinc-400">Status: {pedido.status}</p>}
                 </div>
-                <button ref={closeRef} className="p-2 rounded-lg hover:bg-zinc-800 text-zinc-300" onClick={onClose} aria-label="Fechar"><FaTimes /></button>
+                <button ref={closeRef} className="p-2 rounded-lg border theme-border hover:bg-white/5 text-zinc-300" onClick={onClose} aria-label="Fechar"><FaTimes /></button>
               </div>
               {/* Link público e PIN (mantidos neste modal geral) */}
               {pedido && (
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div className="text-xs text-zinc-400 flex items-center gap-2">
                     <span className="font-semibold text-zinc-300">Link público:</span>
-                    <button className="px-2 py-1 rounded border border-zinc-700 hover:bg-zinc-800 text-zinc-300" onClick={() => { try { const code = (pedido.code && /^\d{4}$/.test(pedido.code)) ? pedido.code : (pedido.id || '').replace(/\D/g,'').slice(0,4).padEnd(4,'0'); const href = `${window.location.origin}/pedido/${pedido.id}?code=${code}`; navigator.clipboard?.writeText(href); } catch {} }}>Copiar</button>
+                    <button className="px-2 py-1 rounded border theme-border hover:bg-white/5 text-zinc-300" onClick={() => { try { const code = (pedido.code && /^\d{4}$/.test(pedido.code)) ? pedido.code : (pedido.id || '').replace(/\D/g,'').slice(0,4).padEnd(4,'0'); const href = `${window.location.origin}/pedido/${pedido.id}?code=${code}`; navigator.clipboard?.writeText(href); } catch {} }}>Copiar</button>
                   </div>
                   <div className="text-xs text-zinc-400 flex items-center gap-2">
                     <span className="font-semibold text-zinc-300">PIN:</span>
-                    <span className="font-mono text-zinc-200 bg-zinc-800 rounded px-2 py-0.5">
+                    <span className="font-mono text-zinc-200 rounded px-2 py-0.5 border theme-border theme-surface">
                       {pedido.code || (pedido.id || '').slice(0,4).replace(/\D/g,'') || '0000'}
                     </span>
-                    <button className="px-2 py-1 rounded border border-zinc-700 hover:bg-zinc-800 text-zinc-300" onClick={() => { try { const code = pedido.code || (pedido.id || '').slice(0,4).replace(/\D/g,'') || '0000'; navigator.clipboard?.writeText(code); } catch {} }}>Copiar</button>
+                    <button className="px-2 py-1 rounded border theme-border hover:bg-white/5 text-zinc-300" onClick={() => { try { const code = pedido.code || (pedido.id || '').slice(0,4).replace(/\D/g,'') || '0000'; navigator.clipboard?.writeText(code); } catch {} }}>Copiar</button>
                   </div>
                 </div>
               )}
@@ -126,7 +127,7 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
                     const done = idx <= currentIdx;
                     return (
                       <div key={s.key} className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-full border flex items-center justify-center ${done ? 'border-orange-500 bg-orange-500/10' : 'border-zinc-700 bg-zinc-800'}`} title={ts ? new Date(ts).toLocaleString('pt-BR'): ''}>
+                        <div className={`w-8 h-8 rounded-full border flex items-center justify-center ${done ? 'border-orange-500 bg-orange-500/10' : 'theme-border theme-surface'}`} title={ts ? new Date(ts).toLocaleString('pt-BR'): ''}>
                           <Icon className={`${done ? 'text-orange-400' : 'text-zinc-400'} text-sm`} />
                         </div>
                         <span className="text-[11px] text-zinc-400">{rel(ts)}</span>
@@ -140,7 +141,7 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
 
             {/* Conteúdo */}
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
-              <div className="bg-zinc-800/40 rounded-xl p-4 border border-zinc-800">
+              <div className="ds-card p-4">
                 <h4 className="text-sm font-semibold text-zinc-200 mb-2">Itens</h4>
                 {loading && <div className="text-sm text-zinc-500">Carregando...</div>}
                 {erro && <div className="text-sm text-red-400">{erro}</div>}
@@ -152,7 +153,7 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
                   )
                 ))}
               </div>
-              <div className="bg-zinc-800/40 rounded-xl p-4 border border-zinc-800 space-y-2">
+              <div className="ds-card p-4 space-y-2">
                 <h4 className="text-sm font-semibold text-zinc-200 mb-2">Cliente & Entrega</h4>
                 <div className="text-sm text-zinc-400">Entrega: {pedido?.entrega || '—'}</div>
                 <div className="text-sm text-zinc-400">Pagamento: {pedido?.pagamento || '—'}</div>
@@ -166,12 +167,12 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
                   <div className="text-xs text-emerald-300/90">Pontos: +{pedido!.awards!.reduce((a,b)=> a + (Number(b.v||1)), 0)} {pedido!.awards![0]?.ev ? `(${pedido!.awards![0]!.ev})` : ''}</div>
                 )}
                 {pedido?.troco ? (
-                  <div className="pt-2 border-t border-zinc-800 text-sm text-zinc-300">
-                    Troco: {Number(pedido.troco).toLocaleString('pt-BR', { style:'currency', currency:'BRL' })}
+                  <div className="pt-2 border-t theme-border text-sm text-zinc-300">
+                    Troco: {formatCurrency(pedido.troco)}
                   </div>
                 ) : null}
                 <div className="flex items-center justify-end gap-2 pt-1">
-                  <button className="px-3 py-1.5 rounded border border-zinc-700 text-zinc-300" onClick={onClose}>Fechar</button>
+                  <button className="px-3 py-1.5 rounded border theme-border text-zinc-300 hover:bg-white/5 transition" onClick={onClose}>Fechar</button>
                 </div>
               </div>
             </div>

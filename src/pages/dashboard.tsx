@@ -26,53 +26,129 @@ import { listPedidos } from '@/lib/pedidosClient';
 import { usePedidoStatusUpdater } from '@/hooks/usePedidoStatus';
 type CashResumo = { id: string; at: string; items: number; total: number; cliente?: string; cls?: number[] };
 
-const statusList: {
-  key: string;
+type BoardColumnConfig = {
+  id: string;
   label: string;
-  subtitle: string;
-  color: string;
-  icon: IconType;
-}[] = [
-  {
-    key: "EM_AGUARDO",
-    label: "Em Aguardo",
-    subtitle: "Esperando cozinha",
-    color: "border-gray-500",
-    icon: FaHourglassHalf,
-  },
-  {
-    key: "EM_PREPARO",
-    label: "Em Preparo",
-    subtitle: "Está sendo produzido",
-    color: "border-orange-500",
-    icon: FaUtensils,
-  },
-  {
-    key: "PRONTO",
-    label: "Pronto",
-    subtitle: "Aguardando motoboy",
-    color: "border-yellow-400",
-    icon: FaClock,
-  },
-  {
-    key: "EM_ROTA",
-    label: "Em Rota",
-    subtitle: "Indo ao cliente",
-    color: "border-blue-500",
-    icon: FaMotorcycle,
-  },
-  {
-    key: "COMPLETO",
-    label: "Completo",
-    subtitle: "Pedido entregue",
-    color: "border-green-600",
-    icon: FaCheckCircle,
-  },
+  subtitle?: string;
+  builtIn?: boolean;
+  visible?: boolean;
+};
+
+type BoardColumnStyle = {
+  headerBgClass: string;
+  borderClass: string;
+  textClass: string;
+  badgeBgClass: string;
+  badgeBorderClass: string;
+  scrollbarClass: string;
+  Icon: IconType;
+};
+
+type BoardColumnView = BoardColumnConfig & BoardColumnStyle;
+
+const DEFAULT_BOARD_COLUMNS: BoardColumnConfig[] = [
+  { id: 'EM_AGUARDO', label: 'Em Aguardo', subtitle: 'Esperando cozinha', builtIn: true, visible: true },
+  { id: 'EM_PREPARO', label: 'Em Preparo', subtitle: 'Está sendo produzido', builtIn: true, visible: true },
+  { id: 'PRONTO', label: 'Pronto', subtitle: 'Aguardando motoboy', builtIn: true, visible: true },
+  { id: 'EM_ROTA', label: 'Em Rota', subtitle: 'Indo ao cliente', builtIn: true, visible: true },
+  { id: 'COMPLETO', label: 'Completo', subtitle: 'Pedido entregue', builtIn: true, visible: true },
 ];
+
+const COLUMN_STYLE_MAP: Record<string, BoardColumnStyle> = {
+  EM_AGUARDO: {
+    headerBgClass: "bg-gray-500/10",
+    borderClass: "border-gray-500",
+    textClass: "text-gray-400",
+    badgeBgClass: "bg-gray-500/10",
+    badgeBorderClass: "border-gray-500",
+    scrollbarClass: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-500/70 hover:scrollbar-thumb-gray-400",
+    Icon: FaHourglassHalf,
+  },
+  EM_PREPARO: {
+    headerBgClass: "bg-orange-500/10",
+    borderClass: "border-orange-500",
+    textClass: "text-orange-500",
+    badgeBgClass: "bg-orange-500/10",
+    badgeBorderClass: "border-orange-500",
+    scrollbarClass: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-orange-500/70 hover:scrollbar-thumb-orange-400",
+    Icon: FaUtensils,
+  },
+  PRONTO: {
+    headerBgClass: "bg-yellow-500/10",
+    borderClass: "border-yellow-500",
+    textClass: "text-yellow-500",
+    badgeBgClass: "bg-yellow-500/10",
+    badgeBorderClass: "border-yellow-500",
+    scrollbarClass: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-yellow-500/70 hover:scrollbar-thumb-yellow-400",
+    Icon: FaClock,
+  },
+  EM_ROTA: {
+    headerBgClass: "bg-blue-500/10",
+    borderClass: "border-blue-500",
+    textClass: "text-blue-500",
+    badgeBgClass: "bg-blue-500/10",
+    badgeBorderClass: "border-blue-500",
+    scrollbarClass: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-blue-500/70 hover:scrollbar-thumb-blue-400",
+    Icon: FaMotorcycle,
+  },
+  COMPLETO: {
+    headerBgClass: "bg-green-500/10",
+    borderClass: "border-green-500",
+    textClass: "text-green-500",
+    badgeBgClass: "bg-green-500/10",
+    badgeBorderClass: "border-green-500",
+    scrollbarClass: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-green-500/70 hover:scrollbar-thumb-green-400",
+    Icon: FaCheckCircle,
+  },
+};
+
+const FALLBACK_STYLE: BoardColumnStyle = {
+  headerBgClass: "bg-zinc-800/30",
+  borderClass: "border-zinc-600",
+  textClass: "text-zinc-200",
+  badgeBgClass: "bg-zinc-800/30",
+  badgeBorderClass: "border-zinc-600",
+  scrollbarClass: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-zinc-600/70 hover:scrollbar-thumb-zinc-500",
+  Icon: FaHourglassHalf,
+};
+
+const sanitizeBoardColumns = (input?: unknown): BoardColumnConfig[] => {
+  if (!Array.isArray(input) || !input.length) return DEFAULT_BOARD_COLUMNS;
+  const cleaned: BoardColumnConfig[] = input
+    .map((col) => {
+      if (!col || typeof col !== 'object') return null;
+      const rawId = (col as { id?: unknown }).id;
+      const id = typeof rawId === 'string' && rawId.trim() ? rawId.trim().toUpperCase() : undefined;
+      if (!id) return null;
+      const base = DEFAULT_BOARD_COLUMNS.find((c) => c.id === id);
+      const rawLabel = (col as { label?: unknown }).label;
+      const cleanedLabel = typeof rawLabel === 'string' && rawLabel.trim() ? rawLabel.trim() : undefined;
+      const finalLabel = base?.label ?? cleanedLabel;
+      if (!finalLabel) return null;
+      const rawSubtitle = (col as { subtitle?: unknown }).subtitle;
+      const subtitle = typeof rawSubtitle === 'string' && rawSubtitle.trim() ? rawSubtitle.trim() : base?.subtitle;
+      const visible = (col as { visible?: unknown }).visible === false ? false : true;
+      const builtIn = (col as { builtIn?: unknown }).builtIn ?? base?.builtIn;
+      return { id, label: base?.builtIn ? base.label : finalLabel, subtitle, visible, builtIn };
+    })
+    .filter(Boolean) as BoardColumnConfig[];
+  const unique = Array.from(new Map(cleaned.map((c) => [c.id, c])).values());
+  if (!unique.some((c) => c.id === 'COMPLETO')) unique.push(DEFAULT_BOARD_COLUMNS.find((c) => c.id === 'COMPLETO')!);
+  return unique.length ? unique : DEFAULT_BOARD_COLUMNS;
+};
+
+const getColumnStyle = (id: string): BoardColumnStyle => {
+  return COLUMN_STYLE_MAP[id] ?? FALLBACK_STYLE;
+};
 
 // StatCard removido (não utilizado)
 
-export const getServerSideProps: GetServerSideProps = async (ctx) => {
+type DashboardProps = {
+  boardColumns: BoardColumnConfig[];
+  allowedColumns: string[] | null;
+};
+
+export const getServerSideProps: GetServerSideProps<DashboardProps> = async (ctx) => {
   const session = await getServerSession(ctx.req, ctx.res, authOptions);
   type SessionWithAccess = Session & { user?: { access?: string; type?: number } };
   const s = session as SessionWithAccess | null;
@@ -82,12 +158,20 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   try {
     const access = s.user.access as string;
     const db = await getDb();
-    const user = await db.collection('users').findOne({ access }, { projection: { _id: 0, status: 1, type: 1 } });
+    const user = await db.collection('users').findOne(
+      { access },
+      { projection: { _id: 0, status: 1, type: 1, board: 1, allowedColumns: 1 } }
+    );
     if (!user || user.status !== 1) {
       return { redirect: { destination: '/', permanent: false } };
     }
+    const boardColumns = sanitizeBoardColumns(user.board?.columns);
+    const allowed = Array.isArray(user.allowedColumns) && user.allowedColumns.length
+      ? user.allowedColumns.filter((id: unknown) => typeof id === 'string' && boardColumns.some((col) => col.id === id))
+      : null;
+    return { props: { boardColumns, allowedColumns: allowed } };
   } catch {}
-  return { props: {} };
+  return { props: { boardColumns: DEFAULT_BOARD_COLUMNS, allowedColumns: null } };
 };
 
 function ModalCancelados({ isOpen, onClose, pedidos, onStatusChange, now }: { 
@@ -179,7 +263,7 @@ function ModalCancelados({ isOpen, onClose, pedidos, onStatusChange, now }: {
   );
 }
 
-export default function Dashboard() {
+export default function Dashboard({ boardColumns, allowedColumns }: DashboardProps) {
   const router = useRouter();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
@@ -196,6 +280,44 @@ export default function Dashboard() {
   const [showNovo, setShowNovo] = useState(false);
   const [cashCompletos, setCashCompletos] = useState<CashResumo[]>([]);
   const [topToast, setTopToast] = useState<{ msg: string; type: 'info'|'warn'|'ok' } | null>(null);
+  const allowedSet = useMemo(() => (allowedColumns && allowedColumns.length ? new Set(allowedColumns) : null), [allowedColumns]);
+  const columnDefinitions = useMemo<BoardColumnView[]>(() => {
+    const base = (boardColumns && boardColumns.length ? boardColumns : DEFAULT_BOARD_COLUMNS);
+    const filtered = base
+      .filter((col) => col.visible !== false && (!allowedSet || allowedSet.has(col.id)))
+      .map((col) => ({ ...col, ...getColumnStyle(col.id) }));
+    if (filtered.length) return filtered;
+    return DEFAULT_BOARD_COLUMNS.map((col) => ({ ...col, ...getColumnStyle(col.id) }));
+  }, [boardColumns, allowedSet]);
+  const primaryColumns = useMemo(() => columnDefinitions.filter((col) => col.id !== 'COMPLETO'), [columnDefinitions]);
+  const completoColumn = useMemo(() => {
+    const existing = columnDefinitions.find((col) => col.id === 'COMPLETO');
+    if (existing) return existing;
+    const fallback = DEFAULT_BOARD_COLUMNS.find((col) => col.id === 'COMPLETO')!;
+    return { ...fallback, ...getColumnStyle('COMPLETO') };
+  }, [columnDefinitions]);
+  const renderColumnSkeleton = () => (
+    <div className="space-y-3">
+      {Array.from({ length: 3 }).map((_, idx) => (
+        <div key={idx} className="p-4 border border-zinc-800 rounded-xl bg-zinc-900/30 animate-pulse space-y-3">
+          <div className="h-4 bg-zinc-800 rounded w-2/3" />
+          <div className="h-3 bg-zinc-800 rounded w-1/2" />
+          <div className="h-20 bg-zinc-800 rounded" />
+        </div>
+      ))}
+    </div>
+  );
+  const renderListSkeleton = () => (
+    <div className="space-y-3">
+      {Array.from({ length: 3 }).map((_, idx) => (
+        <div key={idx} className="p-3 border border-zinc-800 rounded-xl bg-zinc-900/30 animate-pulse space-y-2">
+          <div className="h-3 bg-zinc-800 rounded w-1/3" />
+          <div className="h-3 bg-zinc-800 rounded w-1/4" />
+          <div className="h-4 bg-zinc-800 rounded w-2/3" />
+        </div>
+      ))}
+    </div>
+  );
   
   const { status } = useSession({
     required: true,
@@ -304,82 +426,56 @@ export default function Dashboard() {
 
         {/* Columns */}
         <div className="grid gap-3 sm:gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-          {statusList.filter(si => si.key !== 'COMPLETO').map(statusItem => {
-            if (hiddenCols.includes(statusItem.key)) return null;
-            const Icon = statusItem.icon;
-            const pedidosCol = pedidosAtivos.filter(p => p.status === statusItem.key);
-            
-            const statusColors: Record<string, string> = {
-              EM_AGUARDO: "bg-gray-500/10 border-gray-500 text-gray-400",
-              EM_PREPARO: "bg-orange-500/10 border-orange-500 text-orange-500",
-              PRONTO: "bg-yellow-500/10 border-yellow-500 text-yellow-500",
-              EM_ROTA: "bg-blue-500/10 border-blue-500 text-blue-500",
-              COMPLETO: "bg-green-500/10 border-green-500 text-green-500",
-            };
-            
-            const colorClasses = statusColors[statusItem.key] || statusColors.EM_PREPARO;
-            const [bgClass, borderClass, textClass] = colorClasses.split(' ');
-
-            const scrollbarByStatus: Record<string, string> = {
-              EM_AGUARDO: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-500/70 hover:scrollbar-thumb-gray-400",
-              EM_PREPARO: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-orange-500/70 hover:scrollbar-thumb-orange-400",
-              PRONTO: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-yellow-500/70 hover:scrollbar-thumb-yellow-400",
-              EM_ROTA: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-blue-500/70 hover:scrollbar-thumb-blue-400",
-              COMPLETO: "scrollbar-thin scrollbar-track-transparent scrollbar-thumb-green-500/70 hover:scrollbar-thumb-green-400",
-            };
-            const scrollbarClasses = scrollbarByStatus[statusItem.key] ?? scrollbarByStatus.EM_PREPARO;
-
+          {primaryColumns.map((column) => {
+            if (hiddenCols.includes(column.id)) return null;
+            const Icon = column.Icon;
+            const pedidosCol = pedidosAtivos.filter((p) => p.status === column.id);
             return (
-              <div key={statusItem.key} className="flex flex-col">
+              <div key={column.id} className="flex flex-col">
                 {/* Column Header */}
-                <div className={`${bgClass} border ${borderClass} rounded-xl p-4 mb-4 sticky top-[89px] z-10 backdrop-blur-xl shadow-lg`}>
+                <div className={`${column.headerBgClass} border ${column.borderClass} rounded-xl p-4 mb-4 sticky top-[89px] z-10 backdrop-blur-xl shadow-lg`}>
                   <div className="pointer-events-none absolute inset-0 opacity-10 bg-[radial-gradient(1000px_200px_at_-10%_-20%,#ffffff,transparent_60%)]" />
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
-                      <div className={`w-11 h-11 rounded-xl ${bgClass} border ${borderClass} flex items-center justify-center shadow-lg`}>
-                        <Icon className={`${textClass} text-lg`} />
+                      <div className={`w-11 h-11 rounded-xl ${column.badgeBgClass} border ${column.badgeBorderClass} flex items-center justify-center shadow-lg`}>
+                        <Icon className={`${column.textClass} text-lg`} />
                       </div>
                       <div>
-                        <h2 className={`font-bold text-base ${textClass}`}>
-                          {statusItem.label}
+                        <h2 className={`font-bold text-base ${column.textClass}`}>
+                          {column.label}
                         </h2>
                         <p className="text-xs text-zinc-500">
-                          {statusItem.subtitle}
+                          {column.subtitle}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        className={`p-2 rounded-lg ${bgClass} border ${borderClass} ${textClass} hover:opacity-80 transition`}
+                        className={`p-2 rounded-lg ${column.badgeBgClass} border ${column.badgeBorderClass} ${column.textClass} hover:opacity-80 transition`}
                         title="Esconder coluna"
                         onMouseEnter={() => playUiSound('hover')}
-                        onClick={() => { playUiSound('click'); setHiddenCols((prev) => [...new Set([...prev, statusItem.key])]); }}
+                        onClick={() => { playUiSound('click'); setHiddenCols((prev) => [...new Set([...prev, column.id])]); }}
                       >
                         <FaEyeSlash />
                       </button>
-                      <div className={`w-9 h-9 rounded-full ${bgClass} border ${borderClass} flex items-center justify-center shadow-lg`}>
-                        <span className={`text-sm font-bold ${textClass}`}>
+                      <div className={`w-9 h-9 rounded-full ${column.badgeBgClass} border ${column.badgeBorderClass} flex items-center justify-center shadow-lg`}>
+                        <span className={`text-sm font-bold ${column.textClass}`}>
                           {pedidosCol.length}
                         </span>
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Indicador de atrasados removido */}
                 </div>
 
                 {/* Orders */}
                 <div
-                  className={`space-y-0 overflow-y-auto overscroll-contain max-h-[calc(100vh-320px)] pr-0 ${scrollbarClasses} ${dragOverCol===statusItem.key ? 'outline-2 outline-offset-2 outline-current/50' : ''}`}
-                  onDragOver={(e)=>{ e.preventDefault(); setDragOverCol(statusItem.key); }}
+                  className={`space-y-0 overflow-y-auto overscroll-contain max-h-[calc(100vh-320px)] pr-0 ${column.scrollbarClass} ${dragOverCol===column.id ? 'outline-2 outline-offset-2 outline-current/50' : ''}`}
+                  onDragOver={(e)=>{ e.preventDefault(); setDragOverCol(column.id); }}
                   onDragLeave={()=> setDragOverCol(null)}
-                  onDrop={(e)=>{ e.preventDefault(); setDragOverCol(null); try { const id = e.dataTransfer.getData('application/x-pedido-id'); if (id) { handleStatus(id, statusItem.key); } } catch {} }}
+                  onDrop={(e)=>{ e.preventDefault(); setDragOverCol(null); try { const id = e.dataTransfer.getData('application/x-pedido-id'); if (id) { handleStatus(id, column.id); } } catch {} }}
                 >
                   {loading ? (
-                    <div className="text-center py-12 text-zinc-600">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-3"></div>
-                      <p className="text-sm">Carregando...</p>
-                    </div>
+                    <div className="py-6">{renderColumnSkeleton()}</div>
                   ) : pedidosCol.length === 0 ? (
                     <div className="text-center py-12 text-zinc-600">
                       <Icon className="text-3xl mx-auto mb-3 opacity-30" />
@@ -390,7 +486,7 @@ export default function Dashboard() {
                       <PedidoCard
                         key={pedido.id}
                         pedido={pedido}
-                        status={statusItem.key}
+                        status={column.id}
                         now={clock ?? 0}
                         onStatusChange={handleStatus}
                         onAskCancel={(id)=> setCancelId(id)}
@@ -404,34 +500,31 @@ export default function Dashboard() {
           })}
           {/* Coluna COMPLETO (via caixa.completos[]) */}
           <div className="flex flex-col">
-            <div className={`bg-green-500/10 border border-green-500 rounded-xl p-4 mb-4 sticky top-[89px] z-10 backdrop-blur-xl shadow-lg`}>
+            <div className={`${completoColumn.headerBgClass} border ${completoColumn.borderClass} rounded-xl p-4 mb-4 sticky top-[89px] z-10 backdrop-blur-xl shadow-lg`}>
               <div className="pointer-events-none absolute inset-0 opacity-10 bg-[radial-gradient(1000px_200px_at_-10%_-20%,#ffffff,transparent_60%)]" />
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-xl bg-green-500/10 border border-green-500 flex items-center justify-center shadow-lg`}>
-                    <FaCheckCircle className={`text-green-500 text-lg`} />
+                  <div className={`w-11 h-11 rounded-xl ${completoColumn.badgeBgClass} border ${completoColumn.badgeBorderClass} flex items-center justify-center shadow-lg`}>
+                    <completoColumn.Icon className={`${completoColumn.textClass} text-lg`} />
                   </div>
                   <div>
-                    <h2 className={`font-bold text-base text-green-500`}>Completo</h2>
-                    <p className="text-xs text-zinc-500">Pedidos entregues</p>
+                    <h2 className={`font-bold text-base ${completoColumn.textClass}`}>{completoColumn.label}</h2>
+                    <p className="text-xs text-zinc-500">{completoColumn.subtitle || 'Pedidos entregues'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className={`w-9 h-9 rounded-full bg-green-500/10 border border-green-500 flex items-center justify-center shadow-lg`}>
-                    <span className={`text-sm font-bold text-green-500`}>{cashCompletos.length}</span>
+                  <div className={`w-9 h-9 rounded-full ${completoColumn.badgeBgClass} border ${completoColumn.badgeBorderClass} flex items-center justify-center shadow-lg`}>
+                    <span className={`text-sm font-bold ${completoColumn.textClass}`}>{cashCompletos.length}</span>
                   </div>
                 </div>
               </div>
             </div>
-            <div className={`space-y-2 overflow-y-auto overscroll-contain max-h-[calc(100vh-320px)] pr-0 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-green-500/70 hover:scrollbar-thumb-green-400`}>
+            <div className={`space-y-2 overflow-y-auto overscroll-contain max-h-[calc(100vh-320px)] pr-0 ${completoColumn.scrollbarClass}`}>
               {loading ? (
-                <div className="text-center py-12 text-zinc-600">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-3"></div>
-                  <p className="text-sm">Carregando...</p>
-                </div>
+                <div className="py-6">{renderListSkeleton()}</div>
               ) : cashCompletos.length === 0 ? (
                 <div className="text-center py-12 text-zinc-600">
-                  <FaCheckCircle className="text-3xl mx-auto mb-3 opacity-30" />
+                  <completoColumn.Icon className="text-3xl mx-auto mb-3 opacity-30" />
                   <p className="text-sm">Nenhum pedido completo</p>
                 </div>
               ) : (
@@ -480,7 +573,7 @@ export default function Dashboard() {
       {/* Reabrir colunas ocultas */}
       <HiddenColumnsPanel
         hiddenCols={hiddenCols}
-        statusList={statusList.map(s => ({ key: s.key, label: s.label }))}
+        statusList={columnDefinitions.map((s) => ({ key: s.id, label: s.label }))}
         onUnhide={(key) => setHiddenCols(prev => prev.filter(k => k !== key))}
       />
 

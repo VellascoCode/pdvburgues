@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { SessionProvider } from "next-auth/react";
+import { SessionProvider, useSession, signOut } from "next-auth/react";
 import type { AppProps } from "next/app";
 import "@/styles/globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { setUiSoundEnabled } from "@/utils/sound";
+import { useRouter } from "next/router";
+import { useUserMeta } from "@/hooks/useUserMeta";
 
 function OnlineStatusBanner() {
   // Evita hidratação instável: inicia como null no SSR e só exibe após montar
@@ -31,15 +33,43 @@ function OnlineStatusBanner() {
   );
 }
 
+function UserStatusGate() {
+  const { status } = useSession();
+  const { meta } = useUserMeta(20000);
+  const router = useRouter();
+  useEffect(() => {
+    if (status !== 'authenticated' || !meta) return;
+    if (meta.status === 2) {
+      signOut({ callbackUrl: '/?blocked=1' });
+      return;
+    }
+    if (meta.status === 0 && router.pathname !== '/espera') {
+      router.replace('/espera');
+      return;
+    }
+    if (meta.status === 1 && router.pathname === '/espera') {
+      router.replace('/dashboard');
+    }
+  }, [status, meta, router]);
+  return null;
+}
+
 export default function App({ Component, pageProps }: AppProps) {
   // Remove qualquer Service Worker prévio e limpa caches SW
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const isProd = process.env.NODE_ENV === 'production';
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(()=>{});
-    }
-    if ('caches' in window) {
-      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).catch(()=>{});
+      if (isProd) {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .catch(() => {});
+      } else {
+        navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((reg) => reg.unregister())).catch(() => {});
+        if ('caches' in window) {
+          caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).catch(() => {});
+        }
+      }
     }
     // Inicializa preferência de som a partir do localStorage/servidor
     try {
@@ -54,6 +84,7 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <SessionProvider session={pageProps.session} refetchOnWindowFocus={false} refetchInterval={0} refetchWhenOffline={false}>
       <ThemeProvider>
+        <UserStatusGate />
         <OnlineStatusBanner />
         <div className="relative z-10">
           <Component {...pageProps} />

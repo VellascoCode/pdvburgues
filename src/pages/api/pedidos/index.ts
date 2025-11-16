@@ -1,11 +1,42 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { ObjectId, type Collection } from 'mongodb';
 import { writeLog } from '@/lib/logs';
 import type { CustomerDoc } from '@/pages/api/clientes/[uuid]';
 import { ensurePedidoDefaults, computePedidoTotal } from '@/lib/pedidos';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { generatePedidoId, isValidPedidoId, normalizePedidoId } from '@/utils/pedidoId';
+import type { Pedido, PedidoItem } from '@/utils/indexedDB';
+import { containsUnsafeKeys } from '@/lib/payload';
+
+type ProductDoc = {
+  _id: ObjectId;
+  nome?: string;
+  stock?: number;
+};
+
+type PedidoWithCalculated = Pedido & { total?: number; cliente?: (Pedido['cliente'] & { uuid?: string }) };
+type PedidoItemObject = Exclude<PedidoItem, string>;
+async function assignUniquePedidoId(col: Collection, provided?: string): Promise<string> {
+  if (typeof provided === 'string' && provided.trim()) {
+    const normalized = normalizePedidoId(provided);
+    if (!isValidPedidoId(normalized)) {
+      throw new Error('INVALID_PEDIDO_ID_FORMAT');
+    }
+    const exists = await col.findOne({ id: normalized }, { projection: { _id: 1 } });
+    if (exists) {
+      throw new Error('DUPLICATE_PEDIDO_ID');
+    }
+    return normalized;
+  }
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const candidate = generatePedidoId();
+    const exists = await col.findOne({ id: candidate }, { projection: { _id: 1 } });
+    if (!exists) return candidate;
+  }
+  throw new Error('UNAVAILABLE_PEDIDO_ID');
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const db = await getDb();
@@ -23,9 +54,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
   if (req.method === 'POST') {
-    const pedido = ensurePedidoDefaults(req.body || {});
+    if (containsUnsafeKeys(req.body)) {
+      return res.status(400).json({ error: 'payload inválido' });
+    }
+    const rawPedido = (req.body || {}) as Partial<Pedido>;
+    const pedido = ensurePedidoDefaults(rawPedido) as PedidoWithCalculated;
+    let actorAccess = '000';
+    try {
+      const session = await getServerSession(req, res, authOptions);
+      const s = session as unknown as { user?: { access?: string } } | null;
+      actorAccess = s?.user?.access || '000';
+    } catch {}
+    try {
+      pedido.id = await assignUniquePedidoId(col, pedido.id);
+    } catch (err) {
+      const code = err instanceof Error ? err.message : '';
+      if (code === 'INVALID_PEDIDO_ID_FORMAT') {
+        return res.status(400).json({ error: 'ID do pedido inválido. Use o formato 1A0000.' });
+      }
+      if (code === 'DUPLICATE_PEDIDO_ID') {
+        return res.status(409).json({ error: 'ID do pedido já utilizado.' });
+      }
+      return res.status(500).json({ error: 'Não foi possível gerar ID único para o pedido.' });
+    }
+    const shouldAccruePayment = pedido.pagamentoStatus === 'PAGO' && typeof pedido.pagamento === 'string' && pedido.pagamento !== 'PENDENTE';
     // Bloquear criação quando caixa não está ABERTO
-    const db = await getDb();
     type CashLight = { sessionId: string; paused?: boolean; closedAt?: string; saidas?: Array<{ at: string; value: number; by: string; desc?: string }>; totals: { saidas: number; vendas: number; entradas: number; porPagamento?: Record<string, number> } };
     const cashCol = db.collection<CashLight>('cash');
     const open = await cashCol.findOne({ closedAt: { $exists: false } });
@@ -33,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(409).json({ error: open ? 'caixa pausado' : 'caixa fechado' });
     }
     // Vincular pedido à sessão de caixa atual
-    (pedido as any).sessionId = open.sessionId;
+    pedido.sessionId = open.sessionId;
     // calcula total da venda a partir dos itens
     const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
 
@@ -41,18 +94,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       // mapa pid->qty
       const need = new Map<string, number>();
-      for (const it of itens) {
+      for (const it of itens as PedidoItem[]) {
         if (it && typeof it === 'object') {
-          const pid = String(((it as any).pid || (it as any).id || ''));
-          const preco = Number((it as any).preco);
-          const qty = Number((it as any).quantidade || 1);
+          const enriched = it as PedidoItemObject & { pid?: string; id?: string };
+          const pid = String((enriched.pid || enriched.id || ''));
+          const preco = Number(enriched.preco);
+          const qty = Number(enriched.quantidade || 1);
           if (!isFinite(preco) || preco < 0) return res.status(400).json({ error: 'item inválido (preço)' });
           if (!isFinite(qty) || qty < 1) return res.status(400).json({ error: 'item inválido (quantidade)' });
           if (pid) need.set(pid, (need.get(pid) || 0) + qty);
         }
       }
       if (need.size > 0) {
-        const prodCol = db.collection('products');
+        const prodCol = db.collection<ProductDoc>('products');
         // carregar docs
         const docs = await Promise.all(Array.from(need.keys()).map(async (pid) => {
           const byId = ObjectId.isValid(pid) ? await prodCol.findOne({ _id: new ObjectId(pid) }) : null;
@@ -64,19 +118,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         for (const { pid, doc } of docs) {
           if (!doc) continue; // desconhecido => ignora decremento
           const want = need.get(pid)!;
-          const st = (doc as any).stock;
+          const st = doc.stock;
           if (typeof st === 'number') {
             if (st < want) {
-              return res.status(409).json({ error: 'estoque insuficiente', pid, disponivel: st, solicitado: want, nome: (doc as any).nome });
+              return res.status(409).json({ error: 'estoque insuficiente', pid, disponivel: st, solicitado: want, nome: doc.nome });
             }
           }
         }
         // aplicar decremento (somente para numéricos)
         const bulk = docs
-          .filter(({ doc }) => doc && typeof (doc as any).stock === 'number')
+          .filter(({ doc }) => doc && typeof doc.stock === 'number')
           .map(({ pid, doc }) => ({
             updateOne: {
-              filter: { _id: (doc as any)._id, stock: { $gte: need.get(pid)! } },
+              filter: { _id: doc!._id, stock: { $gte: need.get(pid)! } },
               update: { $inc: { stock: -need.get(pid)! }, $set: { updatedAt: new Date().toISOString() } },
             }
           }));
@@ -90,22 +144,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
       }
-    } catch (e) {
+    } catch {
       return res.status(500).json({ error: 'falha ao verificar/atualizar estoque' });
     }
     // Sanitizar taxaEntrega: se ausente/<=0.005, remover; caso contrário, normalizar a 2 casas
-    const taxaRawUnsafe = (pedido as any)?.taxaEntrega;
+    const taxaRawUnsafe = pedido.taxaEntrega;
     if (taxaRawUnsafe === undefined || taxaRawUnsafe === null) {
-      delete (pedido as any).taxaEntrega;
+      delete pedido.taxaEntrega;
     } else {
       const taxaNum = Number(taxaRawUnsafe);
-      if (!isFinite(taxaNum) || taxaNum <= 0.005) delete (pedido as any).taxaEntrega;
-      else (pedido as any).taxaEntrega = Math.round(taxaNum * 100) / 100;
+      if (!isFinite(taxaNum) || taxaNum <= 0.005) delete pedido.taxaEntrega;
+      else pedido.taxaEntrega = Math.round(taxaNum * 100) / 100;
     }
     const total = computePedidoTotal(pedido);
     pedido.total = total;
     // Soma apenas dos itens (sem taxa) para consolidar em caixa
-    const itemsSum = itens.reduce((acc: number, it: any) => {
+    const itemsSum = itens.reduce((acc: number, it: PedidoItem) => {
       if (!it || typeof it === 'string') return acc;
       const preco = Number(it.preco ?? 0);
       const qty = Number(it.quantidade ?? 1);
@@ -113,12 +167,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }, 0);
     // Fidelidade: registrar pontos (não válido para Balcão)
     try {
-      const uuid = (pedido as any)?.cliente?.uuid || (pedido as any)?.cliente?.id;
-      const ev = (pedido as any)?.fidelidade?.evento;
-      const enabled = !!((pedido as any)?.fidelidade?.enabled);
+      const uuid = pedido.cliente?.uuid || pedido.cliente?.id;
+      const ev = pedido.fidelidade?.evento;
+      const enabled = Boolean(pedido.fidelidade?.enabled);
       if (typeof uuid === 'string' && uuid !== 'BALC' && enabled && typeof ev === 'string' && ev) {
         const nowIso = new Date().toISOString();
-        (pedido as any).awards = [{ ev, v: 1, at: nowIso }];
+        pedido.awards = [{ ev, v: 1, at: nowIso }];
         const custCol = db.collection<CustomerDoc>('customers');
         await custCol.updateOne(
           { uuid },
@@ -129,26 +183,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await col.insertOne(pedido);
 
     // Atualiza caixa com contadores leves (itens/categorias/pagamento)
-    const updates: Record<string, unknown> = {
-      $inc: {
-        'totals.vendas': itemsSum,
-      },
-    };
-    // pagamento
-    if (pedido.pagamento && typeof pedido.pagamento === 'string') {
+    const updates: Record<string, unknown> = { $inc: {} as Record<string, number> };
+    if (shouldAccruePayment && isFinite(itemsSum) && itemsSum > 0) {
+      (updates.$inc as Record<string, number>)['totals.vendas'] = itemsSum;
       const key = `totals.porPagamento.${pedido.pagamento}`;
       (updates.$inc as Record<string, number>)[key] = itemsSum;
     }
     // itens (por nome para "Itens mais vendidos" legível)
     if (Array.isArray(itens) && itens.length) {
       const $inc: Record<string, number> = (updates.$inc as Record<string, number>);
-      for (const it of itens) {
+      for (const it of itens as PedidoItem[]) {
         if (it && typeof it === 'object') {
-          const rawName = (it as any).nome;
-          const name = (typeof rawName === 'string' ? rawName.trim() : '') || String((it as any).id || 'ITEM');
-          const rawCat = (it as any).categoria;
+          const enriched = it as PedidoItemObject & { id?: string; categoria?: string };
+          const rawName = enriched.nome;
+          const name = (typeof rawName === 'string' ? rawName.trim() : '') || String(enriched.id || 'ITEM');
+          const rawCat = enriched.categoria;
           const cat = typeof rawCat === 'string' ? rawCat.trim() : undefined;
-          const qt = Number((it as any).quantidade || 1);
+          const qt = Number(enriched.quantidade || 1);
           $inc[`items.${name}`] = ($inc[`items.${name}`] || 0) + qt;
           if (cat) $inc[`cats.${cat}`] = ($inc[`cats.${cat}`] || 0) + qt;
         }
@@ -158,25 +209,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Registrar taxa de entrega como saída (gasto externo)
     try {
-      const taxa = Number((pedido as any)?.taxaEntrega || 0);
+      const taxa = Number(pedido.taxaEntrega || 0);
       if (isFinite(taxa) && taxa >= 0.01) {
-        let access = '000';
-        try {
-          const session = await getServerSession(req, res, authOptions);
-          const s = session as unknown as { user?: { access?: string } } | null;
-          access = s?.user?.access || '000';
-        } catch {}
         const nowIso = new Date().toISOString();
         await cashCol.updateOne(
           { sessionId: open.sessionId },
-          { $inc: { 'totals.saidas': taxa }, $push: { saidas: { at: nowIso, value: taxa, by: access, desc: `taxa entrega ${pedido.id}` } } }
+          { $inc: { 'totals.saidas': taxa }, $push: { saidas: { at: nowIso, value: taxa, by: actorAccess, desc: `taxa entrega ${pedido.id}` } } }
         );
+        await writeLog({ access: actorAccess, action: 331, value: taxa, desc: `Taxa de entrega adicionada (${pedido.id})`, ref: { pedidoId: pedido.id, caixaId: open.sessionId } });
       }
     } catch {}
 
     // Incrementar compras do cliente já na criação
     try {
-      const uuid = (pedido as any)?.cliente?.uuid || (pedido as any)?.cliente?.id;
+      const uuid = pedido.cliente?.uuid || pedido.cliente?.id;
       if (typeof uuid === 'string' && uuid.length > 0) {
         const now = new Date().toISOString();
         await db.collection('customers').updateOne({ uuid }, { $inc: { compras: 1 }, $set: { updatedAt: now } });
@@ -185,10 +231,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Log: novo pedido (200)
     try {
-      const session = await getServerSession(req, res, authOptions);
-      const s = session as unknown as { user?: { access?: string } } | null;
-      const access = s?.user?.access || '000';
-      await writeLog({ access, action: 200, desc: `Novo pedido: ${pedido.id || 'sem-id'}`, ref: { pedidoId: pedido.id } });
+      await writeLog({ access: actorAccess, action: 200, desc: `Novo pedido: ${pedido.id || 'sem-id'}`, ref: { pedidoId: pedido.id, caixaId: open.sessionId } });
     } catch {}
     return res.status(201).json(pedido);
   }

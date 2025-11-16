@@ -1,5 +1,4 @@
 import { useRouter } from 'next/router';
-import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -7,19 +6,7 @@ import {
   FaShoppingBag, FaDollarSign, FaMapMarkerAlt, FaFileAlt, FaShieldAlt, FaUser, FaRoad, FaHashtag, FaCity, FaStar
 } from 'react-icons/fa';
 import { playUiSound } from '@/utils/sound';
-
-// Constantes estáticas fora do componente para evitar dependências em hooks
-const NOMES = ['João', 'Maria', 'Carlos', 'Ana', 'Paula', 'Diego', 'Luiza', 'Bruno'] as const;
-const RUAS = ['Av. Central', 'Rua das Flores', 'Rua 7 de Setembro', 'Av. Brasil', 'Rua da Praia'] as const;
-const BAIRROS = ['Centro', 'Jardim América', 'Vila Nova', 'Bela Vista', 'São José'] as const;
-const OBS_POOL = [
-  'Sem cebola no burger, por favor.',
-  'Molho extra à parte.',
-  'Pouco gelo no refrigerante.',
-  'Adicionar sachê de ketchup e maionese.',
-  'Tocar o interfone ao chegar.',
-  'Preferência: pão sem gergelim.'
-] as const;
+import { formatCurrency } from '@/utils/currency';
 
 type PedidoItem = string | { nome: string; quantidade?: number; preco?: number|string; icon?: string };
 type Cliente = { id?: string; nick?: string };
@@ -66,6 +53,8 @@ export default function PublicPedido() {
   });
   const [draft, setDraft] = useState<Partial<Record<'1'|'2'|'3', number>>>({});
   const [hover, setHover] = useState<Partial<Record<'1'|'2'|'3', number>>>({});
+  const pedidoStatus = pedido?.status;
+  const hasPedido = Boolean(pedido);
 
   // Som sutil de submit (sucesso/erro)
   const playSubmitSound = (type: 'success' | 'error') => {
@@ -178,7 +167,7 @@ export default function PublicPedido() {
 
   // Auto-refresh do status enquanto não COMPLETO, para ativar avaliação assim que entregar
   useEffect(() => {
-    if (!successPin || rated || !id || !(pedido && pedido.status && pedido.status !== 'COMPLETO')) return;
+    if (!successPin || rated || !id || !(hasPedido && pedidoStatus && pedidoStatus !== 'COMPLETO')) return;
     const code = pinOk || (typeof router.query?.code === 'string' ? String(router.query.code) : null);
     if (!code) return;
     let stop = false;
@@ -195,7 +184,7 @@ export default function PublicPedido() {
     // primeira batida leve para acelerar
     setTimeout(tick, 3000);
     return () => { stop = true; clearInterval(iv); };
-  }, [successPin, rated, pedido?.status, id, pinOk, router.query]);
+  }, [successPin, rated, hasPedido, pedidoStatus, id, pinOk, router.query]);
 
   const steps = [
     { key:'EM_AGUARDO', label:'Recebido', icon: FaHourglassHalf },
@@ -296,12 +285,12 @@ export default function PublicPedido() {
   }, [pedido]);
 
   return (
-    <div className="min-h-screen app-gradient-bg p-6 flex items-center justify-center relative">
+    <div className="min-h-screen app-gradient-bg p-6 flex items-center justify-center relative theme-text">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-2xl relative">
         {/* Card principal */}
         <div className="backdrop-blur-xl rounded-2xl border shadow-2xl overflow-hidden theme-surface theme-border">
-          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-zinc-400 text-sm">
+          <div className="px-6 py-4 border-b theme-border flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
               <FaShieldAlt className="text-zinc-500" />
               <span>Acompanhe seu pedido</span>
             </div>
@@ -342,12 +331,12 @@ export default function PublicPedido() {
                   <motion.form
                     ref={formRef}
                     onSubmit={handleSubmit}
-                    className="flex flex-col items-center justify-center bg-zinc-900/60 rounded-2xl border border-zinc-800 p-8"
+                    className="flex flex-col items-center justify-center rounded-2xl border theme-border theme-surface p-8"
                     animate={shake ? { x: [-10, 10, -10, 10, 0] } : {}}
                     transition={{ duration: 0.35 }}
                     onMouseEnter={() => playUiSound('hover')}
                   >
-                    <motion.h2 className="text-xl font-semibold text-white mb-2">Digite seu PIN</motion.h2>
+                    <motion.h2 className="text-xl font-semibold theme-text mb-2">Digite seu PIN</motion.h2>
                     <p className="text-zinc-400 text-sm mb-6">PIN de 4 dígitos para visualizar detalhes</p>
                     <div className="flex gap-3 mb-4">
                       {pin.map((d, idx) => (
@@ -363,11 +352,11 @@ export default function PublicPedido() {
                             onChange={(e) => handleChange(idx, e.target.value)}
                             onKeyDown={(e) => handleKeyDown(idx, e)}
                             onPaste={idx === 0 ? handlePaste : undefined}
-                            className={`w-14 h-14 text-2xl text-center rounded-xl border-2 bg-zinc-800/50 text-white outline-none transition-all font-mono backdrop-blur
-                              ${blocked || successPin ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-800/70'}
-                              ${d ? 'border-orange-500 bg-zinc-800/70' : 'border-zinc-700'}
+                            className={`w-14 h-14 text-2xl text-center rounded-xl border-2 theme-border bg-transparent theme-text outline-none transition-all font-mono
+                              ${blocked || successPin ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/5'}
+                              ${d ? 'border-orange-500 bg-white/10' : ''}
                               ${errorPin && !blocked ? 'border-red-500/50' : ''}
-                              focus:border-orange-500 focus:bg-zinc-800 focus:scale-105 focus:shadow-lg focus:shadow-orange-500/20
+                              focus:border-orange-500 focus:bg-white/10 focus:scale-105 focus:shadow-lg focus:shadow-orange-500/20
                             `}
                           />
                         </motion.div>
@@ -451,13 +440,13 @@ export default function PublicPedido() {
                               <span className="px-2 py-0.5 rounded bg-zinc-700/50 text-zinc-200 font-mono text-xs">x{it.quantidade || 1}</span>
                               <span>{it.nome}</span>
                             </div>
-                            <div className="text-zinc-400">{(Number(it.preco)||0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                            <div className="text-zinc-400">{formatCurrency(it.preco)}</div>
                           </div>
                         ))}
                       </div>
                       <div className="border-t border-zinc-700 mt-3 pt-3 flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2 text-zinc-400"><FaDollarSign />Total</div>
-                        <div className="text-white font-semibold">{totalValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
+                        <div className="text-white font-semibold">{formatCurrency(totalValor)}</div>
                       </div>
                       {Array.isArray(awards) && awards.length > 0 && (
                         <div className="mt-2 text-xs text-emerald-300/90">
@@ -467,7 +456,7 @@ export default function PublicPedido() {
                       {pedido?.pagamento && (
                         <div className="mt-1 text-sm text-zinc-300"><span className="text-zinc-400">Pagamento:</span> {pedido.pagamento}</div>
                       )}
-                      <div className="mt-2 text-sm text-zinc-300"><span className="text-zinc-400">Troco:</span> {pedido?.troco ? Number(pedido.troco).toLocaleString('pt-BR',{style:'currency', currency:'BRL'}) : 'Não'}</div>
+                      <div className="mt-2 text-sm text-zinc-300"><span className="text-zinc-400">Troco:</span> {pedido?.troco ? formatCurrency(pedido.troco) : 'Não'}</div>
                     </div>
 
                     {/* Entrega (w-full) */}
@@ -486,7 +475,7 @@ export default function PublicPedido() {
                     {/* Observações (w-full) */}
                     <div className="bg-zinc-800/40 border border-zinc-700 rounded-xl p-4 mb-2" onMouseEnter={() => playUiSound('hover')}>
                       <div className="flex items-center gap-2 text-zinc-300 mb-1"><FaFileAlt className="text-cyan-400" /><span className="font-semibold">Observações</span></div>
-                      <div className="text-sm text-zinc-200 whitespace-pre-wrap break-words">{pedido?.observacoes?.trim() ? pedido.observacoes : 'Sem descrição'}</div>
+                      <div className="text-sm text-zinc-200 whitespace-pre-wrap wrap-break-word">{pedido?.observacoes?.trim() ? pedido.observacoes : 'Sem descrição'}</div>
                     </div>
 
                     {/* Avaliação (uma vez / 3 categorias) */}
@@ -520,7 +509,15 @@ export default function PublicPedido() {
                                     }
                                   }}
                                   onMouseEnter={()=> { if (!rated && canRate) setHover(prev => ({ ...prev, [key]: h })); }}
-                                  onMouseLeave={()=> { if (!rated && canRate) setHover(prev => { const { [key]: _, ...rest } = prev; return rest; }); }}
+                                  onMouseLeave={()=> {
+                                    if (!rated && canRate) {
+                                      setHover((prev) => {
+                                        const next = { ...prev };
+                                        delete next[key];
+                                        return next;
+                                      });
+                                    }
+                                  }}
                                   className={`text-xl sm:text-2xl transition-transform ${(!rated && canRate) ? 'hover:scale-110 cursor-pointer' : 'cursor-default'} ${color}`}
                                   aria-label={`${key==='1'?'pedido':key==='2'?'atendimento':'entrega'} ${h} de 5`}
                                 >

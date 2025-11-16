@@ -2,6 +2,7 @@ import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ICONS, IconKey } from '@/components/food-icons';
 import { playUiSound } from '@/utils/sound';
+import { PrepTag, getPrepTagMeta } from '@/constants/prepTags';
 
 export type ProductListItem = {
   id: string;
@@ -17,6 +18,7 @@ export type ProductListItem = {
   iconKey: IconKey;
   cor: string;
   bg: string;
+  prepTag: PrepTag;
 };
 
 export default function ProductsList({
@@ -40,6 +42,7 @@ export default function ProductsList({
         <AnimatePresence>
           {items.map((p) => {
             const Icon = ICONS[p.iconKey];
+            const prepMeta = getPrepTagMeta(p.prepTag);
             return (
               <motion.button
                 key={p.id}
@@ -82,6 +85,9 @@ export default function ProductsList({
                     </span>
                   </div>
                   <div className="text-xs text-zinc-400 line-clamp-2 mb-2">{p.desc}</div>
+                  <div className={`text-[10px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${prepMeta.colorClass}`}>
+                    {prepMeta.shortLabel}
+                  </div>
                   {/* flags duplicadas removidas; agora apenas badges absolutas no topo */}
                   <div className="flex items-center justify-between text-sm">
                     <div>
@@ -112,6 +118,7 @@ export default function ProductsList({
           <tr className="border-b theme-border">
             <th className="px-3 py-2">Produto</th>
             <th className="px-3 py-2">Categoria</th>
+            <th className="px-3 py-2">Preparo</th>
             <th className="px-3 py-2">Preço</th>
             <th className="px-3 py-2">Flags</th>
             <th className="px-3 py-2">Estoque</th>
@@ -138,6 +145,11 @@ export default function ProductsList({
                   <div className="font-medium theme-text">{p.nome}</div>
                 </td>
                 <td className={`px-3 py-2 ${inactiveMode ? 'text-red-400' : ''}`}>{p.categoria.toUpperCase()}</td>
+                <td className="px-3 py-2">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${getPrepTagMeta(p.prepTag).colorClass}`}>
+                    {getPrepTagMeta(p.prepTag).shortLabel}
+                  </span>
+                </td>
                 <td className="px-3 py-2">
                   {p.promoAtiva && p.promo ? (
                     <>

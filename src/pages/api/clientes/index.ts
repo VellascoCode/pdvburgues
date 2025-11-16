@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/authz';
 import { verifyPin } from '@/lib/security';
 import type { Filter } from 'mongodb';
 import { writeLog } from '@/lib/logs';
+import { containsUnsafeKeys } from '@/lib/payload';
 
 type Genero = 'M'|'F'|'O';
 export type CustomerDoc = {
@@ -93,6 +94,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const me = await getCurrentUser(req, res);
     const access = me?.access;
     if (!access || me?.type !== 10 || me?.status !== 1) return res.status(401).json({ error: 'não autorizado' });
+
+    if (containsUnsafeKeys(req.body)) return res.status(400).json({ error: 'payload inválido' });
 
     const body = req.body as Partial<CustomerDoc> & { pin?: string };
     if (!body) return res.status(400).json({ error: 'payload inválido' });

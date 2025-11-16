@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { FaTimes, FaReceipt, FaCalendarAlt, FaMoneyBill, FaCoins, FaArrowUp, FaArrowDown, FaShoppingCart } from 'react-icons/fa';
+import { FaTimes, FaReceipt, FaCalendarAlt, FaMoneyBill, FaCoins, FaArrowUp, FaArrowDown, FaShoppingCart, FaDownload, FaDoorOpen, FaDoorClosed, FaPause } from 'react-icons/fa';
 import { playUiSound } from '@/utils/sound';
 import dynamic from 'next/dynamic';
 const CaixaChartsClient = dynamic(() => import('./charts/CaixaChartsClient'), { ssr: false });
@@ -9,6 +9,8 @@ type CashDoc = {
   sessionId: string;
   openedAt: string;
   closedAt?: string;
+  openedBy?: string;
+  closedBy?: string;
   base?: number;
   totals?: { vendas?: number; entradas?: number; saidas?: number; porPagamento?: Record<string, number> };
   vendasCount?: number;
@@ -16,14 +18,30 @@ type CashDoc = {
   entradas?: Array<{ at: string; value: number; by: string; desc?: string }>;
   saidas?: Array<{ at: string; value: number; by: string; desc?: string }>;
   completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string }>;
+  pauses?: Array<{ at: string; by?: string; reason?: string }>;
 };
 
-export default function CaixaReportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [loading, setLoading] = React.useState(false);
-  const [data, setData] = React.useState<{ status: string; session: CashDoc | null } | null>(null);
+type CaixaReportModalProps = {
+  open: boolean;
+  onClose: () => void;
+  session?: CashDoc | null;
+  title?: string;
+};
+
+export default function CaixaReportModal({ open, onClose, session, title }: CaixaReportModalProps) {
+  const [loading, setLoading] = React.useState<boolean>(!session);
+  const [data, setData] = React.useState<{ status: string; session: CashDoc | null } | null>(
+    session ? { status: session.closedAt ? 'FECHADO' : 'ABERTO', session } : null
+  );
+  const currencyFormatter = React.useMemo(() => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }), []);
 
   React.useEffect(() => {
     if (!open) return;
+    if (session) {
+      setData({ status: session.closedAt ? 'FECHADO' : 'ABERTO', session });
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     async function load() {
       setLoading(true);
@@ -38,10 +56,44 @@ export default function CaixaReportModal({ open, onClose }: { open: boolean; onC
     playUiSound('open');
     load();
     return () => { cancelled = true; };
-  }, [open]);
+  }, [open, session]);
 
-  const sess = data?.session || null;
+  const sess = session ?? data?.session ?? null;
   const caixaAtual = (sess?.base || 0) + (sess?.totals?.vendas || 0) + (sess?.totals?.entradas || 0) - (sess?.totals?.saidas || 0);
+  const entradasTotal = (sess?.entradas || []).reduce((acc, curr) => acc + Number(curr.value || 0), 0);
+  const saidasTotal = (sess?.saidas || []).reduce((acc, curr) => acc + Number(curr.value || 0), 0);
+  const timeline = React.useMemo(() => {
+    if (!sess) return [] as Array<{ label: string; at: string; icon: React.ComponentType<{ className?: string }>; tone: 'emerald'|'yellow'|'red'; note?: string }>;
+    const events: Array<{ label: string; at: string; icon: React.ComponentType<{ className?: string }>; tone: 'emerald'|'yellow'|'red'; note?: string }> = [];
+    if (sess.openedAt) {
+      events.push({ label: 'Abertura', at: sess.openedAt, icon: FaDoorOpen, tone: 'emerald', note: sess.openedBy ? `por ${sess.openedBy}` : undefined });
+    }
+    (sess.pauses || []).forEach((pause) => {
+      events.push({ label: 'Pausa', at: pause.at, icon: FaPause, tone: 'yellow', note: pause.reason ? pause.reason : pause.by ? `por ${pause.by}` : undefined });
+    });
+    if (sess.closedAt) {
+      events.push({ label: 'Fechamento', at: sess.closedAt, icon: FaDoorClosed, tone: 'red', note: sess.closedBy ? `por ${sess.closedBy}` : undefined });
+    }
+    return events;
+  }, [sess]);
+  const toneClasses = {
+    emerald: { text: 'text-emerald-400', border: 'border-emerald-500/40' },
+    yellow: { text: 'text-yellow-300', border: 'border-yellow-500/40' },
+    red: { text: 'text-red-400', border: 'border-red-500/40' },
+  } as const;
+  const handleExport = React.useCallback(() => {
+    if (!sess) return;
+    const csv = buildCsvFromSession(sess);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `relatorio-caixa-${sess.sessionId}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [sess]);
 
   return (
     <AnimatePresence>
@@ -57,25 +109,35 @@ export default function CaixaReportModal({ open, onClose }: { open: boolean; onC
             onClick={() => { playUiSound('close'); onClose(); }} 
           />
           <motion.div 
-            className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-800/50 bg-zinc-900 shadow-2xl" 
+            className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border theme-border theme-surface shadow-2xl theme-text" 
             initial={{ y: 24, scale: 0.97 }} 
             animate={{ y: 0, scale: 1 }} 
             exit={{ y: 24, scale: 0.97 }}
           >
-            <div className="sticky top-0 z-10 border-b border-zinc-800/50 bg-zinc-900/95 backdrop-blur-md px-5 py-3.5 flex items-center justify-between">
+            <div className="sticky top-0 z-10 border-b theme-border bg-black/20 backdrop-blur-md px-5 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
                   <FaReceipt className="text-emerald-400" />
                 </div>
-                <h3 className="text-white font-semibold text-base">Relatório atual do caixa</h3>
+                <h3 className="font-semibold text-base theme-text">{title || 'Relatório atual do caixa'}</h3>
               </div>
-              <button 
-                className="p-2 rounded-lg hover:bg-zinc-800/80 text-zinc-300 hover:text-zinc-100 transition-all duration-200" 
-                onClick={() => { playUiSound('close'); onClose(); }} 
-                aria-label="Fechar"
-              >
-                <FaTimes />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  className="px-3 py-1.5 rounded-lg border border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10 text-xs flex items-center gap-2 disabled:opacity-50"
+                  onClick={handleExport}
+                  disabled={!sess}
+                >
+                  <FaDownload />
+                  Exportar CSV
+                </button>
+                <button 
+                  className="p-2 rounded-lg hover:bg-zinc-800/80 text-zinc-300 hover:text-zinc-100 transition-all duration-200" 
+                  onClick={() => { playUiSound('close'); onClose(); }} 
+                  aria-label="Fechar"
+                >
+                  <FaTimes />
+                </button>
+              </div>
             </div>
 
             <div className="p-5 text-sm">
@@ -183,7 +245,33 @@ export default function CaixaReportModal({ open, onClose }: { open: boolean; onC
                         <span className="flex items-center gap-1"><FaShoppingCart className="text-zinc-400 text-[10px]" /> Vendas concluídas:</span>
                         <span className="text-zinc-300 font-semibold">{sess.vendasCount || 0}</span>
                       </div>
+                  </div>
+                </div>
+
+                  {timeline.length > 0 && (
+                    <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-xl p-4">
+                      <div className="text-xs text-zinc-500 mb-3 font-semibold uppercase tracking-wide">Linha do tempo</div>
+                      <div className="space-y-3">
+                        {timeline.map((event, index) => (
+                          <div key={`${event.label}-${index}`} className="flex items-start gap-3">
+                            <div className={`w-10 h-10 rounded-full bg-black/20 border ${toneClasses[event.tone].border} flex items-center justify-center`}>
+                              <event.icon className={`${toneClasses[event.tone].text}`} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-zinc-200">{event.label}</div>
+                              <div className="text-xs text-zinc-500">{new Date(event.at).toLocaleString('pt-BR')}</div>
+                              {event.note && <div className="text-xs text-zinc-400">{event.note}</div>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <SummaryCard label="Entradas registradas" value={`${sess.entradas?.length || 0}`} sublabel={currencyFormatter.format(entradasTotal)} icon={FaArrowUp} accent="text-emerald-300" />
+                    <SummaryCard label="Saídas registradas" value={`${sess.saidas?.length || 0}`} sublabel={currencyFormatter.format(saidasTotal)} icon={FaArrowDown} accent="text-red-300" />
+                    <SummaryCard label="Pedidos completos" value={`${sess.completos?.length || 0}`} sublabel={currencyFormatter.format((sess.completos || []).reduce((acc, curr) => acc + Number(curr.total || 0), 0))} icon={FaShoppingCart} accent="text-yellow-300" />
                   </div>
 
                   {/* Gráficos */}
@@ -213,13 +301,13 @@ export default function CaixaReportModal({ open, onClose }: { open: boolean; onC
                               className="flex items-center justify-between text-xs p-2 rounded-lg bg-zinc-900/40 hover:bg-zinc-900/60 transition-colors border border-zinc-800/30"
                             >
                               <div className="min-w-0">
-                                <div className="text-[11px] text-zinc-500">{new Date(m.at).toLocaleString()}</div>
+                                <div className="text-[11px] text-zinc-500">{new Date(m.at).toLocaleString()} · {m.by || '-'}</div>
                                 {m.desc && (
                                   <div className="text-[11px] text-zinc-400 truncate" title={m.desc}>{m.desc}</div>
                                 )}
                               </div>
                               <div className="text-right ml-3">
-                                <div className="text-sm font-bold text-emerald-400">R$ {Number(m.value || 0).toFixed(2)}</div>
+                                <div className="text-sm font-bold text-emerald-400">{currencyFormatter.format(Number(m.value || 0))}</div>
                               </div>
                             </div>
                           ))}
@@ -235,22 +323,26 @@ export default function CaixaReportModal({ open, onClose }: { open: boolean; onC
                           Saídas
                         </div>
                         <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
-                          {(sess.saidas || []).slice().reverse().slice(0,20).map((m, i) => (
-                            <div 
-                              key={`s2${i}`} 
-                              className="flex items-center justify-between text-xs p-2 rounded-lg bg-zinc-900/40 hover:bg-zinc-900/60 transition-colors border border-zinc-800/30"
-                            >
-                              <div className="min-w-0">
-                                <div className="text-[11px] text-zinc-500">{new Date(m.at).toLocaleString()}</div>
-                                {m.desc && (
-                                  <div className="text-[11px] text-zinc-400 truncate" title={m.desc}>{m.desc}</div>
-                                )}
+                          {(sess.saidas || []).slice().reverse().slice(0,20).map((m, i) => {
+                            const isTax = String(m.desc || '').toLowerCase().includes('taxa entrega');
+                            return (
+                              <div 
+                                key={`s2${i}`} 
+                                className={`flex items-center justify-between text-xs p-2 rounded-lg transition-colors ${isTax ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-zinc-900/40 border border-zinc-800/30'} hover:bg-zinc-900/60`}
+                              >
+                                <div className="min-w-0">
+                                  <div className="text-[11px] text-zinc-500">{new Date(m.at).toLocaleString()} · {m.by || '-'}</div>
+                                  <div className="text-[11px] text-zinc-400 truncate" title={m.desc || '—'}>
+                                    {m.desc || '—'}
+                                    {isTax && <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30 uppercase text-[9px]">Taxa</span>}
+                                  </div>
+                                </div>
+                                <div className="text-right ml-3">
+                                  <div className="text-sm font-bold text-red-400">{currencyFormatter.format(Number(m.value || 0))}</div>
+                                </div>
                               </div>
-                              <div className="text-right ml-3">
-                                <div className="text-sm font-bold text-red-400">R$ {Number(m.value || 0).toFixed(2)}</div>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                           {(!sess.saidas || sess.saidas.length===0) && (
                             <div className="text-zinc-500 text-xs text-center py-3">—</div>
                           )}
@@ -292,4 +384,112 @@ export default function CaixaReportModal({ open, onClose }: { open: boolean; onC
       )}
     </AnimatePresence>
   );
+}
+
+function SummaryCard({ label, value, sublabel, icon: Icon, accent }: { label: string; value: string; sublabel?: string; icon: React.ComponentType<{ className?: string }>; accent: string }) {
+  return (
+    <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-4 flex items-center gap-3">
+      <div className={`w-10 h-10 rounded-lg bg-black/30 border border-zinc-700/40 flex items-center justify-center ${accent}`}>
+        <Icon className={`${accent}`} />
+      </div>
+      <div className="min-w-0">
+        <div className="text-xs text-zinc-500 uppercase tracking-wide">{label}</div>
+        <div className="text-lg font-semibold text-zinc-100">{value}</div>
+        {sublabel && <div className="text-xs text-zinc-500">{sublabel}</div>}
+      </div>
+    </div>
+  );
+}
+
+function buildCsvFromSession(sess: CashDoc): string {
+  const formatCurrency = (value?: number) => `R$ ${(Number(value || 0)).toFixed(2).replace('.', ',')}`;
+  const rows: string[][] = [];
+  rows.push(['Sessão', sess.sessionId]);
+  rows.push(['Abertura', new Date(sess.openedAt).toLocaleString('pt-BR')]);
+  rows.push(['Fechamento', sess.closedAt ? new Date(sess.closedAt).toLocaleString('pt-BR') : '—']);
+  rows.push(['Base inicial', formatCurrency(sess.base)]);
+  rows.push([]);
+
+  rows.push(['Totais']);
+  rows.push(['Tipo', 'Valor']);
+  rows.push(['Vendas', formatCurrency(sess.totals?.vendas)]);
+  rows.push(['Entradas', formatCurrency(sess.totals?.entradas)]);
+  rows.push(['Saídas', formatCurrency(sess.totals?.saidas)]);
+  rows.push(['Pedidos concluídos', String(sess.vendasCount || 0)]);
+  rows.push([]);
+
+  const pagamentos = sess.totals?.porPagamento || {};
+  if (Object.keys(pagamentos).length) {
+    rows.push(['Pagamentos']);
+    rows.push(['Método', 'Valor']);
+    for (const [method, value] of Object.entries(pagamentos)) {
+      rows.push([method, formatCurrency(value)]);
+    }
+    rows.push([]);
+  }
+
+  if (sess.items && Object.keys(sess.items).length) {
+    rows.push(['Itens vendidos']);
+    rows.push(['Produto', 'Quantidade']);
+    Object.entries(sess.items)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .forEach(([name, qty]) => {
+        rows.push([name, String(qty)]);
+      });
+    rows.push([]);
+  }
+
+  if (sess.entradas && sess.entradas.length) {
+    rows.push(['Entradas']);
+    rows.push(['Data', 'Valor', 'Responsável', 'Descrição']);
+    sess.entradas.forEach((entry) => {
+      rows.push([
+        new Date(entry.at).toLocaleString('pt-BR'),
+        formatCurrency(entry.value),
+        entry.by || '-',
+        entry.desc || '-',
+      ]);
+    });
+    rows.push([]);
+  }
+
+  if (sess.saidas && sess.saidas.length) {
+    rows.push(['Saídas']);
+    rows.push(['Data', 'Valor', 'Responsável', 'Descrição']);
+    sess.saidas.forEach((entry) => {
+      rows.push([
+        new Date(entry.at).toLocaleString('pt-BR'),
+        formatCurrency(entry.value),
+        entry.by || '-',
+        entry.desc || '-',
+      ]);
+    });
+    rows.push([]);
+  }
+
+  if (sess.completos && sess.completos.length) {
+    rows.push(['Pedidos completos']);
+    rows.push(['Pedido', 'Data', 'Itens', 'Total', 'Cliente']);
+    sess.completos.forEach((pedido) => {
+      rows.push([
+        pedido.id,
+        new Date(pedido.at).toLocaleString('pt-BR'),
+        String(pedido.items || 0),
+        formatCurrency(pedido.total),
+        pedido.cliente || '-',
+      ]);
+    });
+    rows.push([]);
+  }
+
+  return rows
+    .map((cols) =>
+      cols
+        .map((value) => {
+          const safe = String(value ?? '').replace(/"/g, '""');
+          return `"${safe}"`;
+        })
+        .join(';')
+    )
+    .join('\n');
 }

@@ -3,8 +3,12 @@ import { getDb } from '@/lib/mongodb';
 import { getCurrentUser } from '@/lib/authz';
 import { writeLog } from '@/lib/logs';
 import { verifyPin } from '@/lib/security';
+import { containsUnsafeKeys } from '@/lib/payload';
 import { ObjectId } from 'mongodb';
 import type { Filter } from 'mongodb';
+import type { PrepTag } from '@/constants/prepTags';
+import { DEFAULT_PREP_TAG, PREP_TAGS, getDefaultPrepItems } from '@/constants/prepTags';
+import type { ProductPrepItem } from '@/types/product';
 
 type Categoria = 'burger'|'bebida'|'pizza'|'hotdog'|'sobremesa'|'frango'|'veg';
 
@@ -22,9 +26,39 @@ type ProductDoc = {
   iconKey: string;
   cor: string;
   bg: string;
+  prepTag?: PrepTag;
+  prepItems?: ProductPrepItem[];
   createdAt?: string;
   updatedAt?: string;
   deletado?: boolean;
+};
+
+const allowedPrepTags = new Set<PrepTag>(PREP_TAGS.map((tag) => tag.key));
+const sanitizePrepTag = (value?: string): PrepTag => {
+  if (value && allowedPrepTags.has(value as PrepTag)) return value as PrepTag;
+  return DEFAULT_PREP_TAG;
+};
+
+const MAX_PREP_ITEMS = 10;
+const sanitizePrepItems = (value?: unknown): ProductPrepItem[] => {
+  if (!Array.isArray(value)) return [];
+  const cleaned: ProductPrepItem[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue;
+    const nome = String((raw as { nome?: string }).nome || '').trim();
+    if (!nome) continue;
+    const iconKeyRaw = (raw as { iconKey?: unknown }).iconKey;
+    const iconKey =
+      typeof iconKeyRaw === 'string' && /^[a-z0-9_-]{2,30}$/i.test(iconKeyRaw)
+        ? (iconKeyRaw as ProductPrepItem['iconKey'])
+        : undefined;
+    const noteRaw = (raw as { note?: unknown }).note;
+    const note = typeof noteRaw === 'string' ? noteRaw.trim() : undefined;
+    const externo = Boolean((raw as { externo?: unknown }).externo);
+    cleaned.push({ nome, iconKey, note, externo });
+    if (cleaned.length >= MAX_PREP_ITEMS) break;
+  }
+  return cleaned;
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -61,12 +95,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     (filter as Record<string, unknown>).deletado = { $ne: true };
     const total = await col.countDocuments(filter);
-    const items = await col
+    const rawItems = await col
       .find(filter)
       .sort({ createdAt: -1, nome: 1 })
       .skip((page - 1) * pageSize)
       .limit(pageSize)
       .toArray();
+    const items = rawItems.map((item) => {
+      const normalizedTag = item.prepTag || DEFAULT_PREP_TAG;
+      const normalizedItems =
+        item.prepItems && item.prepItems.length
+          ? item.prepItems
+          : getDefaultPrepItems(normalizedTag);
+      return {
+        ...item,
+        prepTag: normalizedTag,
+        prepItems: normalizedItems,
+      };
+    });
+    const legacyUpdates = rawItems
+      .map((item, idx) => {
+        if ((!item.prepItems || item.prepItems.length === 0) && item._id) {
+          return {
+            _id: item._id,
+            prepItems: items[idx].prepItems || [],
+            prepTag: items[idx].prepTag || DEFAULT_PREP_TAG,
+          };
+        }
+        return null;
+      })
+      .filter((entry): entry is { _id: ObjectId; prepItems: ProductPrepItem[]; prepTag: PrepTag } => Boolean(entry));
+    if (legacyUpdates.length) {
+      try {
+        await col.bulkWrite(
+          legacyUpdates.map((entry) => ({
+            updateOne: {
+              filter: { _id: entry._id },
+              update: { $set: { prepItems: entry.prepItems, prepTag: entry.prepTag } },
+            },
+          })),
+          { ordered: false }
+        );
+      } catch {
+        // ignore migration errors
+      }
+    }
     return res.status(200).json({ items, total, page, pageSize });
   }
 
@@ -75,6 +148,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const access = me?.access;
     if (!access || me?.type !== 10 || me?.status !== 1) {
       return res.status(401).json({ error: 'não autorizado' });
+    }
+
+    if (containsUnsafeKeys(req.body)) {
+      return res.status(400).json({ error: 'payload inválido' });
     }
 
     const { data, pin } = req.body as { data?: ProductDoc; pin?: string };
@@ -94,6 +171,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'dados de produto inválidos' });
     }
     const now = new Date().toISOString();
+    const sanitizedTag = sanitizePrepTag((data as { prepTag?: string }).prepTag);
+    const sanitizedItems = sanitizePrepItems((data as { prepItems?: unknown }).prepItems);
     const doc: ProductDoc = {
       nome: data.nome.trim(),
       categoria: data.categoria,
@@ -107,6 +186,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       iconKey: String(data.iconKey),
       cor: data.cor,
       bg: data.bg,
+      prepTag: sanitizedTag,
+      prepItems: sanitizedItems.length ? sanitizedItems : getDefaultPrepItems(sanitizedTag),
       createdAt: now,
       updatedAt: now,
       deletado: false,

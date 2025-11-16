@@ -19,6 +19,16 @@ type FeedbackDoc = {
   entrega?: number;
 };
 
+type FeedbackAggDoc = Partial<{
+  avgPedido: number;
+  avgAtendimento: number;
+  avgEntrega: number;
+  d1_p: number; d2_p: number; d3_p: number; d4_p: number; d5_p: number;
+  d1_a: number; d2_a: number; d3_a: number; d4_a: number; d5_a: number;
+  d1_e: number; d2_e: number; d3_e: number; d4_e: number; d5_e: number;
+  cnt: number;
+}>;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
@@ -82,8 +92,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     },
   ];
-  const aggr = await col.aggregate(pipeline).toArray();
-  const a = aggr[0] || {} as any;
+  const aggr = await col.aggregate<FeedbackAggDoc>(pipeline).toArray();
+  const a: FeedbackAggDoc = aggr[0] || {};
   const metrics = {
     total,
     avg: {

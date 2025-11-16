@@ -11,6 +11,13 @@ export function ensurePedidoDefaults<T extends Partial<Pedido>>(pedido: T): T {
   p.status = p.status || 'EM_AGUARDO';
   p.timestamps = { ...(p.timestamps || {}), [p.status!]: p.criadoEm! };
   if (!p.code) p.code = generateFourDigitCode();
+  const hasMetodoPago = typeof p.pagamento === 'string' && p.pagamento !== 'PENDENTE';
+  if (!p.pagamentoStatus) {
+    p.pagamentoStatus = hasMetodoPago ? 'PAGO' : 'PENDENTE';
+  }
+  if (p.pagamentoStatus === 'PENDENTE') {
+    p.pagamento = 'PENDENTE';
+  }
   return p as T;
 }
 

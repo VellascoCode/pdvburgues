@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getCurrentUser } from '@/lib/authz';
 import { writeLog } from '@/lib/logs';
 import { verifyPin } from '@/lib/security';
+import { containsUnsafeKeys } from '@/lib/payload';
 
 type Categoria = 'burger'|'bebida'|'pizza'|'hotdog'|'sobremesa'|'frango'|'veg'|string;
 type CategoriaDoc = { key: Categoria; label: string; iconKey: string; cor: string; bg: string; active?: boolean; deletado?: boolean };
@@ -42,6 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const me = await getCurrentUser(req, res);
     const access = me?.access;
     if (!access || me?.type !== 10 || me?.status !== 1) return res.status(401).json({ error: 'não autorizado' });
+    if (containsUnsafeKeys(req.body)) return res.status(400).json({ error: 'payload inválido' });
     const { key, label, iconKey, cor, bg, active = true, pin } = req.body || {};
     if (!key || !/^[a-z0-9-]{2,20}$/.test(key)) return res.status(400).json({ error: 'key inválida' });
     if (!label || typeof label !== 'string') return res.status(400).json({ error: 'label inválido' });

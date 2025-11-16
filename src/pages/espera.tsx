@@ -2,15 +2,16 @@ import React from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { FaHourglassHalf, FaSignOutAlt } from 'react-icons/fa';
+import { useUserMeta } from '@/hooks/useUserMeta';
 
 export default function EsperaPage() {
   const { data: session, status } = useSession({ required: true, onUnauthenticated() { if (typeof window !== 'undefined') window.location.href = '/'; } });
+  const { meta } = useUserMeta(20000);
   const router = useRouter();
   React.useEffect(() => {
     if (status !== 'authenticated') return;
-    const st = (session?.user as { status?: number } | undefined)?.status ?? 1;
-    if (st === 1) router.replace('/dashboard');
-  }, [status, session, router]);
+    if (meta?.status === 1) router.replace('/dashboard');
+  }, [status, meta, router]);
   const access = (session?.user as { access?: string } | undefined)?.access || '';
   if (status !== 'authenticated') return null;
   return (

@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getCurrentUser } from '@/lib/authz';
 import type { Filter, ObjectId } from 'mongodb';
 import { verifyPin, hashPin } from '@/lib/security';
+import { containsUnsafeKeys } from '@/lib/payload';
 import { writeLog } from '@/lib/logs';
 
 type Genero = 'M' | 'F';
@@ -66,6 +67,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const accessAdmin = me?.access;
     if (!accessAdmin || me?.type !== 10 || me?.status !== 1) {
       return res.status(401).json({ error: 'não autorizado' });
+    }
+
+    if (containsUnsafeKeys(req.body)) {
+      return res.status(400).json({ error: 'payload inválido' });
     }
 
     const body = req.body as { data?: NewUserPayload; pin?: string };

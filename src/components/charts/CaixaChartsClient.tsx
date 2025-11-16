@@ -38,20 +38,6 @@ const COLORS = {
   green: '#22c55e',
 };
 
-function floorHour(d: Date) { const x = new Date(d); x.setMinutes(0,0,0); return x; }
-function ceilHour(d: Date) { const x = new Date(d); if (x.getMinutes()||x.getSeconds()||x.getMilliseconds()) x.setHours(x.getHours()+1); x.setMinutes(0,0,0); return x; }
-function rangeHours(start: Date, end: Date, max = 24): { labels: string[]; start: Date } {
-  const s = floorHour(start);
-  const e = ceilHour(end);
-  const totalHours = Math.max(1, Math.floor((+e - +s) / 3600000));
-  const count = Math.min(max, totalHours);
-  const labels: string[] = [];
-  for (let i = 0; i < count; i++) {
-    labels.push(`${(s.getHours() + i) % 24}`);
-  }
-  return { labels, start: s };
-}
-
 export default function CaixaChartsClient({ sess }: { sess: CashDocCharts }) {
   const [ready, setReady] = React.useState(false);
   React.useEffect(() => {

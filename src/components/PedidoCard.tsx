@@ -12,9 +12,10 @@ interface PedidoCardProps {
   now: number;
   onOpenDetails?: (pedido: Pedido) => void;
   onAskCancel?: (id: string) => void;
+  allowCancel?: boolean;
 }
 
-export default function PedidoCard({ pedido, status, now, onStatusChange, onOpenDetails, onAskCancel }: PedidoCardProps) {
+export default function PedidoCard({ pedido, status, now, onStatusChange, onOpenDetails, onAskCancel, allowCancel = true }: PedidoCardProps) {
   const tempoMs = calcularTempoDoPedido(pedido, now);
   const tempoFormatado =
     tempoMs !== null ? formatarDuracao(tempoMs) : pedido.tempo ?? "00:00";
@@ -53,6 +54,7 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
   
   const nomeCliente = `Pedido #${pedido.id}`;
   const askCancel = () => {
+    if (!allowCancel) return;
     if (onAskCancel) return onAskCancel(pedido.id);
     return onStatusChange(pedido.id, 'CANCELADO');
   };

@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDb } from '@/lib/mongodb';
 import { getCurrentUser } from '@/lib/authz';
 import { verifyPin } from '@/lib/security';
+import { containsUnsafeKeys } from '@/lib/payload';
 import type { Filter } from 'mongodb';
 
 type BusinessConfig = {
@@ -50,6 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'PUT') {
     const me = await getCurrentUser(req, res);
     if (!me || me.type !== 10 || me.status !== 1) return res.status(401).json({ error: 'não autorizado' });
+    if (containsUnsafeKeys(req.body)) return res.status(400).json({ error: 'payload inválido' });
     const body = req.body as Partial<SystemConfig> & { pin?: string };
     // PIN opcional: se enviado, validar contra usuário atual
     if (body.pin) {

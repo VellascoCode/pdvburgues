@@ -3,6 +3,7 @@ import { getDb } from '@/lib/mongodb';
 import { getCurrentUser } from '@/lib/authz';
 import { verifyPin } from '@/lib/security';
 import { writeLog } from '@/lib/logs';
+import { containsUnsafeKeys } from '@/lib/payload';
 
 type CategoriaDoc = { key: string; label: string; iconKey: string; cor: string; bg: string; active?: boolean };
 type DbUser = { access: string; pinHash?: string; pin?: string };
@@ -15,6 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const me = await getCurrentUser(req, res);
     const access = me?.access;
     if (!access || me?.type !== 10 || me?.status !== 1) return res.status(401).json({ error: 'não autorizado' });
+    if (containsUnsafeKeys(req.body)) return res.status(400).json({ error: 'payload inválido' });
     const body = req.body || {};
     const pin = String(body.pin || '');
     const userDoc = await db.collection<DbUser>('users').findOne({ access });
@@ -38,6 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const me = await getCurrentUser(req, res);
     const access = me?.access;
     if (!access || me?.type !== 10 || me?.status !== 1) return res.status(401).json({ error: 'não autorizado' });
+    if (containsUnsafeKeys(req.body)) return res.status(400).json({ error: 'payload inválido' });
     const pin = String((req.body && req.body.pin) || '');
     const userDoc = await db.collection<DbUser>('users').findOne({ access });
     if (!userDoc) return res.status(403).json({ error: 'PIN inválido' });

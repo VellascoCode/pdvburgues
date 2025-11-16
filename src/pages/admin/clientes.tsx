@@ -16,7 +16,7 @@ export default function AdminClientesPage() {
   const [showNew, setShowNew] = React.useState(false);
   const [edit, setEdit] = React.useState<ApiCliente | null>(null);
 
-  async function load() {
+  const load = React.useCallback(async () => {
     setLoading(true);
     try {
       const r = await fetch(`/api/clientes?page=${page}&pageSize=${pageSize}&q=${encodeURIComponent(q)}&stats=${page===1?1:0}`);
@@ -26,8 +26,8 @@ export default function AdminClientesPage() {
       if (j.stats) setStats(j.stats);
     } catch { setItems([]); setTotal(0); }
     finally { setLoading(false); }
-  }
-  React.useEffect(()=> { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [page, pageSize]);
+  }, [page, pageSize, q]);
+  React.useEffect(()=> { load(); }, [load]);
 
   const mediaCompras = React.useMemo(() => {
     const t = stats?.total || 0;
@@ -121,4 +121,3 @@ export default function AdminClientesPage() {
     </div>
   );
 }
-
