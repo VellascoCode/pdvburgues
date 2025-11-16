@@ -4,7 +4,7 @@ Objetivo: validar, como usuário humano, os principais fluxos e regras do sistem
 
 Pré‑requisitos
 - Servidor rodando: `npm run dev`
-- Usuário admin semeado: acesse `GET /api/users/ensure-admin` (gera 000/1234 na primeira vez)
+- Certifique-se de que exista um usuário admin (`000/1234`). Em desenvolvimento/testes, utilize o helper `seedDefaultAdmin` para criá-lo quando o banco estiver vazio.
 
 1) Login e acesso
 - Login com access `000` e PIN `1234` em `src/pages/index.tsx` (fluxo de NextAuth)
@@ -70,7 +70,7 @@ Notas
 Cobertura e mapeamento (páginas, componentes, APIs)
 - Páginas: `src/pages/dashboard.tsx` (5 colunas + NovoPedidoModal), `src/pages/admin/produtos.tsx`, `src/pages/admin/configuracoes.tsx`, `src/pages/admin/usuarios.tsx`, `src/pages/admin/feedback.tsx`, `src/pages/admin/logs.tsx`, `src/pages/pedido/[id].tsx` (público)
 - Componentes: `CaixaSection.tsx`, `NovoPedidoModal.tsx`, `CaixaReportModal.tsx`, `ProdutoModal.tsx`, `PedidoCard.tsx`, `UserEditModal.tsx`, `NavTop.tsx`, `ProductsStats.tsx`
-- APIs principais: `/api/users (ensure-admin, list/create)`, `/api/users/[access] (get/put)`, `/api/config (get/put)`, `/api/categorias`, `/api/produtos`, `/api/pedidos`, `/api/pedidos/[id]`, `/api/pedidos/feedback`, `/api/caixa`, `/api/public/pedido`, `/api/logs`
+- APIs principais: `/api/users (list/create)`, `/api/users/[access] (get/put)`, `/api/config (get/put)`, `/api/categorias`, `/api/produtos`, `/api/pedidos`, `/api/pedidos/[id]`, `/api/pedidos/feedback`, `/api/caixa`, `/api/public/pedido`, `/api/logs`
 - Teste E2E: `GET /api/testesgeral?stream=1&save=1` cobre o fluxo completo e grava `test-reports/geral-*.md/.json`.
 
 Segurança e abuso (passos extras)

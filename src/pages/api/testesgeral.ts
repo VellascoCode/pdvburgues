@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import ensureAdminHandler from './users/ensure-admin';
 import usersAccessHandler from './users/[access]';
 import usersIndexHandler from './users/index';
 import configHandler from './config/index';
@@ -19,13 +18,13 @@ import logsHandler from './logs/index';
 import productsStatsHandler from './products/stats';
 import categoriasIndexHandler from './categorias/index';
 import categoriaKeyHandler from './categorias/[key]';
-import produtoById from './produtos/[id]';
 import { ObjectId } from 'mongodb';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createReq, createRes } from '@/tests/mockReqRes';
 import { getDb } from '@/lib/mongodb';
 import { generatePedidoId } from '@/utils/pedidoId';
+import { seedDefaultAdmin } from '@/lib/seed';
 
 type Step = {
   step: string;
@@ -54,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).end();
   }
 
-  // Apenas admins: precisa existir user 000 (ensure-admin cria)
+  // Apenas admins: exige usuário 000 previamente criado (seedDefaultAdmin auxilia em ambiente de teste)
   process.env.TEST_ACCESS = '000';
 
   const stream = String(req.query.stream || '') === '1';
@@ -69,12 +68,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   };
 
   const steps = async () => {
-    // 0) ensure-admin
+    // 0) seed admin/categorias localmente
     {
-      const r = createRes();
-      await ensureAdminHandler(createReq('GET'), r);
-      write({ step: 'ensure-admin', ok: (r._status||200) < 300, status: r._status||200, data: r._json });
-      if ((r._status||200) >= 300) throw new Error('ensure-admin');
+      const result = await seedDefaultAdmin();
+      write({ step: 'seed:admin', ok: true, status: result.created ? 201 : 200, data: result });
     }
 
     // 0.1) user meta (type/status)

@@ -365,7 +365,7 @@ Modelo `users` no MongoDB com os campos:
 - `status` (number): 0 = novo, 1 = ativo, 2 = suspenso/banido.
 - `nome` (string), `genero` ('M'|'F'|'O'), `icone` (string), `createdAt`, `updatedAt`.
 
-Inicialização: ao acessar `/`, a rota `GET /api/users/ensure-admin` garante um admin padrão (access `000`, pin `1234`, type `10`, status `1`) se a coleção estiver vazia.
+Inicialização: é necessário garantir manualmente um admin padrão (access `000`, pin `1234`, type `10`, status `1`). Há apenas um helper interno (`seedDefaultAdmin`, usado em scripts de teste) que injeta esse registro quando o banco está vazio; não existe rota HTTP pública para isso.
 
 Checagem: a rota `GET /api/users/check?access=000` retorna `type` e `status` do usuário para validações por página (sem depender exclusivamente da sessão). Esse fluxo permite bloquear/alterar permissões sem exigir relogin imediato.
 

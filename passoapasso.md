@@ -10,7 +10,7 @@ Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do
 ## 16/11/2025 – Caixa feedback
 - [x] PinModal passou a aceitar respostas detalhadas (mensagem customizada, supressão de tentativas, fechamento automático), permitindo informar erros operacionais sem consumir tentativas de PIN.
 - [x] Ação de fechar caixa agora detecta pedidos em andamento e exibe aviso claro (“Não é possível fechar o caixa com pedidos em andamento. Finalize ou cancele todos os pedidos antes de encerrar.”) em vez de acusar PIN inválido.
-- [x] Removido o fetch automático para `/api/users/ensure-admin` no login; o seed agora é manual, evitando chamadas contínuas na Vercel.
+- [x] Removido o seed HTTP `/api/users/ensure-admin`; a tela inicial não dispara mais requests automáticos e o admin inicial deve ser criado manualmente (ou via script interno).
 
 ## Admin – Usuários (11/11/2025)
 - [x] Refatorado UserEditModal: sem edição de Access, sem linha “Criado em…”, layout profissional e responsivo
@@ -72,7 +72,7 @@ Próximos passos
 - [x] Implementar endpoints RESTful de produtos (GET/POST `/api/produtos`) com validação de sessão admin e PIN; logs automáticos de criação (action 500).
  - [x] API Logs: `GET/POST /api/logs` usando helpers em `src/lib/logs.ts`.
  - [x] `GET /api/produtos` com paginação e filtros (`page`, `pageSize`, `q`, `categoria`).
-- [x] Categorias: coleção `categories` com seed automático junto ao ensure-admin (7 básicas com ícone/cor/bg). API `GET /api/categorias`.
+- [x] Categorias: coleção `categories` com 7 bases (ícone/cor/bg). Scripts internos (`seedDefaultAdmin`) ainda conseguem criá-las para testes, mas não há rota pública de seed.
 - [x] Config: `GET/PUT /api/config` com opções appName, themeDefault, sounds, printing.enabled e PIN opcional no PUT.
 - [x] Métricas: `GET /api/products/stats` com contadores agregados (categorias/produtos/estoque/promos/combos).
 
@@ -128,7 +128,7 @@ Próximos passos (Clean Code)
 Próximos passos (Caixa)
 - [x] Lançamentos manuais de entradas/saídas via UI com PIN e logs (401/402).
 - [x] Bloquear início de venda no UI quando caixa estiver fechado/pausado (desabilitar "+ Novo Pedido").
-- [x] Users: modelo básico e rotas `GET /api/users/ensure-admin` (injeta admin padrão 000/1234 se vazio) e `GET /api/users/check?access=000` (checar type/status).
+- [x] Users: modelo básico e rota `GET /api/users/check?access=000` (checar type/status). O antigo seed foi convertido em helper interno e não exposto mais via API.
  - [x] Guards SSR: `dashboard` e `admin` usam getServerSideProps para checar `users` (type/status) a cada request.
 
 ## Estrutura de Pastas

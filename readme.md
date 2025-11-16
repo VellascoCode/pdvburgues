@@ -20,7 +20,7 @@ Instalação
 
 Executar
 - Desenvolvimento: `npm run dev` e abra `http://localhost:3000`.
-- Semeie o admin padrão: `GET /api/users/ensure-admin` (cria `access=000`, `pin=1234` se vazio).
+- Garanta um admin padrão manualmente no banco (padrão `000/1234`). Há um helper interno `seedDefaultAdmin` usado apenas em scripts de teste, mas não existe mais endpoint público de seed.
 - Login: informe `000` e `1234`.
 
 APIs principais
@@ -38,7 +38,7 @@ APIs principais
 Testes
 - E2E automatizado: `GET /api/testesgeral?stream=1&save=1`.
   - Gera `test-reports/geral-*.md/.json` com o checklist e status HTTP de cada etapa.
-  - Cobre: ensure-admin, users check, config put/get, categorias CRUD/bloqueios, produtos CRUD/stats/filtros, clientes create/XSS, logs write/read, pedidos create/list/oversell/preço negativo/status chain/cancel estorno/venda extra por método, fidelidade +1/estorno, caixa abrir/pausar/retomar/entradas/saídas/top3/get/fechar, feedback ok/dup/agg 7/30/90, público ok/expirado/PIN errado, filtros de produtos.
+  - Cobre: seed interno (admin/categorias), users check, config put/get, categorias CRUD/bloqueios, produtos CRUD/stats/filtros, clientes create/XSS, logs write/read, pedidos create/list/oversell/preço negativo/status chain/cancel estorno/venda extra por método, fidelidade +1/estorno, caixa abrir/pausar/retomar/entradas/saídas/top3/get/fechar, feedback ok/dup/agg 7/30/90, público ok/expirado/PIN errado, filtros de produtos.
 - Manual: consulte `tests.md` (passo a passo humano) para UI/Fluxo completo.
 
 MVP1 — O que está pronto

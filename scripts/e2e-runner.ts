@@ -2,12 +2,12 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import fs from 'node:fs';
 import path from 'node:path';
 import { generatePedidoId } from '../src/utils/pedidoId';
+import { seedDefaultAdmin } from '../src/lib/seed';
 // Use require to avoid ESM resolution issues with ts-node
 const caixaHandler = require('../src/pages/api/caixa/index').default as (req: any, res: any) => Promise<void>;
 const pedidosHandler = require('../src/pages/api/pedidos/index').default as (req: any, res: any) => Promise<void>;
 const pedidoIdHandler = require('../src/pages/api/pedidos/[id]').default as (req: any, res: any) => Promise<void>;
 const feedbackHandler = require('../src/pages/api/pedidos/feedback').default as (req: any, res: any) => Promise<void>;
-const ensureAdminHandler = require('../src/pages/api/users/ensure-admin').default as (req: any, res: any) => Promise<void>;
 const { createReq, createRes } = require('../tests/mockReqRes');
 
 type StepResult = { step: string; ok: boolean; status: number; data?: unknown; error?: unknown };
@@ -29,13 +29,10 @@ async function run() {
   const logStep = (r: StepResult) => { results.push(r); console.log(`[E2E] ${r.step} -> ${r.ok ? 'OK' : 'FAIL'} (${r.status})`); };
 
   try {
-    // 0) Ensure admin
+    // 0) Seed admin e categorias apenas em memória
     {
-      const req = createReq('GET');
-      const res = createRes();
-      await ensureAdminHandler(req, res);
-      logStep({ step: 'ensure-admin', ok: (res._status||200) < 300, status: res._status||200, data: res._json });
-      if ((res._status||200) >= 300) throw new Error('ensure-admin failed');
+      const result = await seedDefaultAdmin();
+      logStep({ step: 'seed:admin', ok: true, status: result.created ? 201 : 200, data: result });
     }
 
     // 1) Open cash

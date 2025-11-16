@@ -2,7 +2,7 @@
   "ok": true,
   "results": [
     {
-      "step": "ensure-admin",
+      "step": "seed:admin",
       "ok": true,
       "status": 200,
       "data": {
