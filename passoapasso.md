@@ -7,6 +7,14 @@
 
 Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do MVP, baseado na documentação técnica do projeto (doc.md).
 
+## 15/11/2025 – Restore ensure-admin API
+- [x] Recriada a rota `GET /api/users/ensure-admin` consumindo `ensureAdminSeed` centralizado em `src/lib/ensureAdmin.ts`, garantindo criação imediata do admin padrão e evitando laços de login em produção.
+- [x] Executados `npm run lint` e `npm run build` localmente (ambos verdes) para assegurar que o build da Vercel volte a passar sem erros de import.
+
+Próximos passos
+- [ ] Validar o deploy na Vercel assim que o novo build finalizar, confirmando login fluido e ausência de chamadas redundantes ao seed.
+- [ ] Revisitar `src/pages/api/testesgeral.ts` após estabilizar o seed para conectar esse fluxo ao QA automatizado.
+
 ## Admin – Usuários (11/11/2025)
 - [x] Refatorado UserEditModal: sem edição de Access, sem linha “Criado em…”, layout profissional e responsivo
   - Linha 1: Nome | Nick | Novo PIN (limpar/gerar)
