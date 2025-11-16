@@ -195,12 +195,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // 3.1) atualizar preço/promo e depois apagar (soft)
       if (prodId) {
         const r3 = createRes();
-        await produtoById(createReq('PUT', { query: { id: prodId }, body: { pin: '1234', preco: 13, promo: 11, promoAtiva: true } }), r3);
+        await produtoByIdHandler(createReq('PUT', { query: { id: prodId }, body: { pin: '1234', preco: 13, promo: 11, promoAtiva: true } }), r3);
         const updatedProd = r3._json as { preco?: number; promoAtiva?: boolean } | null;
         const okUpd = (r3._status||0) === 200 && Number(updatedProd?.preco) === 13 && updatedProd?.promoAtiva === true;
         write({ step: 'produto:update preco/promo', ok: okUpd, status: r3._status||0 });
         const r4 = createRes();
-        await produtoById(createReq('DELETE', { query: { id: prodId }, body: { pin: '1234' } }), r4);
+        await produtoByIdHandler(createReq('DELETE', { query: { id: prodId }, body: { pin: '1234' } }), r4);
         write({ step: 'produto:delete soft', ok: (r4._status||0) === 200, status: r4._status||0 });
       }
     }
@@ -221,7 +221,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (prodId) {
         const r3 = createRes();
         const maliciousBody: Record<string, unknown> = { pin: '1234', $set: { preco: 0.01 } };
-        await produtoById(createReq('PUT', { query: { id: prodId }, body: maliciousBody }), r3);
+        await produtoByIdHandler(createReq('PUT', { query: { id: prodId }, body: maliciousBody }), r3);
         write({ step: 'sec:produto payload $set ignorado', ok: (r3._status||0) === 400 || (r3._status||0) === 200, status: r3._status||0 });
       }
     }
