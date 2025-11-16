@@ -10,7 +10,7 @@ Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do
 ## 16/11/2025 – Caixa feedback
 - [x] PinModal passou a aceitar respostas detalhadas (mensagem customizada, supressão de tentativas, fechamento automático), permitindo informar erros operacionais sem consumir tentativas de PIN.
 - [x] Ação de fechar caixa agora detecta pedidos em andamento e exibe aviso claro (“Não é possível fechar o caixa com pedidos em andamento. Finalize ou cancele todos os pedidos antes de encerrar.”) em vez de acusar PIN inválido.
-- [x] Login só dispara `/api/users/ensure-admin` em ambiente local (`NODE_ENV=development`), evitando loops de seed na Vercel; efeito separado apenas redireciona sessões.
+- [x] Removido o fetch automático para `/api/users/ensure-admin` no login; o seed agora é manual, evitando chamadas contínuas na Vercel.
 
 ## Admin – Usuários (11/11/2025)
 - [x] Refatorado UserEditModal: sem edição de Access, sem linha “Criado em…”, layout profissional e responsivo
