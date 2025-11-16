@@ -6,7 +6,6 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { setUiSoundEnabled } from "@/utils/sound";
 import { useRouter } from "next/router";
 import { useUserMeta } from "@/hooks/useUserMeta";
-import Script from "next/script";
 
 function OnlineStatusBanner() {
   // Evita hidratação instável: inicia como null no SSR e só exibe após montar
@@ -36,7 +35,7 @@ function OnlineStatusBanner() {
 
 function UserStatusGate() {
   const { status } = useSession();
-  const { meta } = useUserMeta(20000, { onlyWhenVisible: true });
+  const { meta } = useUserMeta(20000);
   const router = useRouter();
   useEffect(() => {
     if (status !== 'authenticated' || !meta) return;
@@ -85,9 +84,6 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <SessionProvider session={pageProps.session} refetchOnWindowFocus={false} refetchInterval={0} refetchWhenOffline={false}>
       <ThemeProvider>
-        {process.env.NODE_ENV === 'production' && (
-          <Script src="/_vercel/insights/script.js" strategy="afterInteractive" />
-        )}
         <UserStatusGate />
         <OnlineStatusBanner />
         <div className="relative z-10">
