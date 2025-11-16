@@ -15,11 +15,18 @@ export async function getCurrentUser(req: NextApiRequest, res: NextApiResponse):
     const access = s?.user?.access;
     effAccess = access || '';
   }
-  if (!effAccess) return null;
+  if (!effAccess) {
+    console.warn('[authz] getCurrentUser without access');
+    return null;
+  }
   const db = await getDb();
   const doc = await db
     .collection<{ access: string; type: number; status: number }>('users')
     .findOne({ access: effAccess }, { projection: { _id: 0, access: 1, type: 1, status: 1 } });
-  if (!doc) return null;
+  if (!doc) {
+    console.warn('[authz] user not found', { access: effAccess });
+    return null;
+  }
+  console.info('[authz] current user', { access: effAccess, type: doc.type, status: doc.status });
   return { access: doc.access, type: Number(doc.type || 0), status: Number(doc.status || 0) };
 }

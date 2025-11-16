@@ -152,16 +152,19 @@ export const getServerSideProps: GetServerSideProps<DashboardProps> = async (ctx
   const session = await getServerSession(ctx.req, ctx.res, authOptions);
   type SessionWithAccess = Session & { user?: { access?: string; type?: number } };
   const s = session as SessionWithAccess | null;
+  console.info('[dashboard] gssp session', { hasSession: !!s, access: s?.user?.access });
   if (!s || !s.user?.access) {
     return { redirect: { destination: '/', permanent: false } };
   }
   try {
     const access = s.user.access as string;
+    console.info('[dashboard] fetching user doc', { access });
     const db = await getDb();
     const user = await db.collection('users').findOne(
       { access },
       { projection: { _id: 0, status: 1, type: 1, board: 1, allowedColumns: 1 } }
     );
+    console.info('[dashboard] user lookup result', { access, found: !!user, status: user?.status });
     if (!user || user.status !== 1) {
       return { redirect: { destination: '/', permanent: false } };
     }
