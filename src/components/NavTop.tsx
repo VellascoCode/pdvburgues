@@ -22,7 +22,7 @@ export default function NavTop({ hiddenCols, onUnhide }: Props) {
   const [openTheme, setOpenTheme] = useState(false);
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
-  const { meta } = useUserMeta(30000);
+  const { meta } = useUserMeta(0);
   const isAdmin = Boolean(meta?.type === 10 && meta?.status === 1);
   const router = useRouter();
   const path = router.pathname;

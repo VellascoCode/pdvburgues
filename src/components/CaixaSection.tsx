@@ -22,7 +22,7 @@ type CashSession = {
 type CashApi = { status: 'FECHADO'|'ABERTO'|'PAUSADO'; session: CashSession|null };
 
 export default function CaixaSection() {
-  const { meta: userMeta } = useUserMeta(30000);
+  const { meta: userMeta } = useUserMeta(0);
   const [cash, setCash] = React.useState<CashApi>({ status: 'FECHADO', session: null });
   const [cfg, setCfg] = React.useState<{ business?: { opened24h?: boolean; open?: string; close?: string; days?: number[] } } | null>(null);
   const [loading, setLoading] = React.useState(false);

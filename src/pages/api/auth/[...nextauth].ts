@@ -4,7 +4,10 @@ import { getDb } from '@/lib/mongodb';
 import { hashPin, verifyPin } from '@/lib/security';
 import { writeLog } from '@/lib/logs';
 
+const fallbackSecret = process.env.NEXTAUTH_SECRET || 'pdvburgues-default-secret';
+
 export const authOptions: NextAuthOptions = {
+  secret: fallbackSecret,
   providers: [
     CredentialsProvider({
       name: 'Acesso',

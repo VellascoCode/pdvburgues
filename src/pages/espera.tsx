@@ -6,7 +6,7 @@ import { useUserMeta } from '@/hooks/useUserMeta';
 
 export default function EsperaPage() {
   const { data: session, status } = useSession({ required: true, onUnauthenticated() { if (typeof window !== 'undefined') window.location.href = '/'; } });
-  const { meta } = useUserMeta(20000);
+  const { meta } = useUserMeta(0);
   const router = useRouter();
   React.useEffect(() => {
     if (status !== 'authenticated') return;

@@ -36,7 +36,7 @@ function OnlineStatusBanner() {
 
 function UserStatusGate() {
   const { status } = useSession();
-  const { meta } = useUserMeta(20000);
+  const { meta } = useUserMeta(20000, { onlyWhenVisible: true });
   const router = useRouter();
   useEffect(() => {
     if (status !== 'authenticated' || !meta) return;
