@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaEyeSlash, FaChartLine, FaPause, FaPlay, FaDoorOpen, FaDoorClosed, FaClock, FaShoppingCart, FaWallet, FaPlus } from 'react-icons/fa';
-import PinModal from '@/components/PinModal';
+import PinModal, { PinModalConfirmResult } from '@/components/PinModal';
 import CaixaReportModal from '@/components/CaixaReportModal';
 import { on, off, emit } from '@/utils/eventBus';
 import { useUserMeta } from '@/hooks/useUserMeta';
@@ -104,7 +104,7 @@ export default function CaixaSection() {
     setPinOpen(true); 
   }
 
-  async function confirmPin(pin: string): Promise<boolean> {
+  async function confirmPin(pin: string): Promise<PinModalConfirmResult> {
     if (!pinAction) return false;
     setLoading(true);
     try {
@@ -118,7 +118,21 @@ export default function CaixaSection() {
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify(body) 
       });
-      if (!r.ok) return false;
+      if (!r.ok) {
+        let msg = '';
+        try {
+          const data = await r.json();
+          if (data && typeof data.error === 'string') msg = data.error;
+        } catch {}
+        if (pinAction === 'fechar' && r.status === 409) {
+          const friendly = 'Não é possível fechar o caixa com pedidos em andamento. Finalize ou cancele todos os pedidos antes de encerrar.';
+          return { ok: false, message: friendly, suppressAttempts: true };
+        }
+        if (r.status !== 403) {
+          return { ok: false, message: msg || 'Não foi possível executar esta ação.', suppressAttempts: true };
+        }
+        return false;
+      }
       await load();
       setBaseInput('');
       return true;

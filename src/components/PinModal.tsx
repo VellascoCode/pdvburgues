@@ -3,7 +3,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { FaLock } from 'react-icons/fa';
 import { playUiSound } from '@/utils/sound';
 
-function PinModalContent({ title, message, onClose, onConfirm }: { title: string; message?: string; onClose: () => void; onConfirm: (pin: string) => Promise<boolean> }) {
+export type PinModalConfirmResult = boolean | { ok: boolean; message?: string; suppressAttempts?: boolean; closeOnError?: boolean };
+
+function PinModalContent({ title, message, onClose, onConfirm }: { title: string; message?: string; onClose: () => void; onConfirm: (pin: string) => Promise<PinModalConfirmResult> }) {
   const [pin, setPin] = React.useState(['', '', '', '']);
   const [error, setError] = React.useState('');
   const [attempts, setAttempts] = React.useState(0);
@@ -70,7 +72,10 @@ function PinModalContent({ title, message, onClose, onConfirm }: { title: string
     }
     playUiSound('click');
     try {
-      const ok = await onConfirm(p);
+      const result = await onConfirm(p);
+      const { ok, message: customMessage, suppressAttempts, closeOnError } = typeof result === 'object' && result !== null
+        ? result
+        : { ok: Boolean(result) };
       if (ok) {
         playUiSound('success');
         setAttempts(0);
@@ -79,17 +84,24 @@ function PinModalContent({ title, message, onClose, onConfirm }: { title: string
         onClose();
       } else {
         playUiSound('error');
-        const nextAttempts = attempts + 1;
-        if (nextAttempts >= 5) {
-          const until = Date.now() + 60000;
-          setBlockedUntil(until);
-          try { window.localStorage.setItem('pin:blockUntil', String(until)); } catch {}
-          setAttempts(0);
-          setError('PIN bloqueado por 60 segundos devido a tentativas incorretas.');
-        } else {
-          setAttempts(nextAttempts);
-          setError(`PIN incorreto. ${5 - nextAttempts} tentativas restantes.`);
+        if (customMessage) setError(customMessage);
+        const shouldCountAttempt = !suppressAttempts;
+        if (shouldCountAttempt) {
+          const nextAttempts = attempts + 1;
+          if (nextAttempts >= 5) {
+            const until = Date.now() + 60000;
+            setBlockedUntil(until);
+            try { window.localStorage.setItem('pin:blockUntil', String(until)); } catch {}
+            setAttempts(0);
+            if (!customMessage) setError('PIN bloqueado por 60 segundos devido a tentativas incorretas.');
+          } else {
+            setAttempts(nextAttempts);
+            if (!customMessage) setError(`PIN incorreto. ${5 - nextAttempts} tentativas restantes.`);
+          }
+        } else if (!customMessage) {
+          setError('Não foi possível confirmar. Verifique os dados e tente novamente.');
         }
+        if (closeOnError) onClose();
       }
     } catch {
       setError('Falha ao confirmar. Tente novamente.');
@@ -144,7 +156,7 @@ function PinModalContent({ title, message, onClose, onConfirm }: { title: string
   );
 }
 
-export default function PinModal({ open, title = 'Confirmação Admin', message, onClose, onConfirm }: { open: boolean; title?: string; message?: string; onClose: () => void; onConfirm: (pin: string) => Promise<boolean> }) {
+export default function PinModal({ open, title = 'Confirmação Admin', message, onClose, onConfirm }: { open: boolean; title?: string; message?: string; onClose: () => void; onConfirm: (pin: string) => Promise<PinModalConfirmResult> }) {
   return (
     <AnimatePresence>
       {open && <PinModalContent title={title} message={message} onClose={onClose} onConfirm={onConfirm} />}
