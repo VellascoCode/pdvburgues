@@ -73,7 +73,16 @@ export const authOptions: NextAuthOptions = {
         name: token.name as string | undefined,
         access: token.access as string | undefined,
       };
+      console.info('[auth] session callback final', { sessionAccess: (session as { user?: { access?: string } }).user?.access });
       return session;
+    },
+  },
+  events: {
+    async signIn({ user }) {
+      console.info('[auth] event signIn', { access: (user as { access?: string }).access });
+    },
+    async session({ session, token }) {
+      console.info('[auth] event session', { tokenAccess: token.access, sessionAccess: (session as { user?: { access?: string } }).user?.access });
     },
   },
 };
