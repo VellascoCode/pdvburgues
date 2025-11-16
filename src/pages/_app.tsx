@@ -58,17 +58,11 @@ export default function App({ Component, pageProps }: AppProps) {
   // Remove qualquer Service Worker prévio e limpa caches SW
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const isProd = process.env.NODE_ENV === 'production';
+    // Desabilita temporariamente o Service Worker para evitar servir bundles antigos do cache
     if ('serviceWorker' in navigator) {
-      if (isProd) {
-        navigator.serviceWorker
-          .register('/sw.js')
-          .catch(() => {});
-      } else {
-        navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((reg) => reg.unregister())).catch(() => {});
-        if ('caches' in window) {
-          caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).catch(() => {});
-        }
+      navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((reg) => reg.unregister())).catch(() => {});
+      if ('caches' in window) {
+        caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).catch(() => {});
       }
     }
     // Inicializa preferência de som a partir do localStorage/servidor
