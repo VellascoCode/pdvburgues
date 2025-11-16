@@ -65,7 +65,6 @@ export default function App({ Component, pageProps }: AppProps) {
         caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).catch(() => {});
       }
     }
-    try { sessionStorage.removeItem('sw:cleaned'); } catch {}
     // Inicializa preferência de som a partir do localStorage/servidor
     try {
       const st = localStorage.getItem('cfg:sounds');
