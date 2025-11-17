@@ -98,8 +98,14 @@ export default function AdminProdutos() {
   React.useEffect(() => {
     const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     // busca removida
-    if (categoria) params.set('categoria', categoria);
-    else params.set('cats', showInactiveCats ? 'inactive' : 'active');
+    if (categoria) {
+      params.set('categoria', categoria);
+    } else {
+      const hasCatInfo = catOptions.length > 0;
+      if (hasCatInfo) {
+        params.set('cats', showInactiveCats ? 'inactive' : 'active');
+      }
+    }
     if (showAllStatus) params.set('status', 'all');
     setLoading(true);
     fetch(`/api/produtos?${params.toString()}`)
