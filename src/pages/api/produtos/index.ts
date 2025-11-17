@@ -94,6 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       else (filter as Record<string, unknown>).categoria = '__none__';
     }
     (filter as Record<string, unknown>).deletado = { $ne: true };
+    console.info('[api/produtos] list', { filter, page, pageSize });
     const total = await col.countDocuments(filter);
     const rawItems = await col
       .find(filter)

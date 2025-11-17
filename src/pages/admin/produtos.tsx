@@ -103,8 +103,13 @@ export default function AdminProdutos() {
     if (showAllStatus) params.set('status', 'all');
     setLoading(true);
     fetch(`/api/produtos?${params.toString()}`)
-      .then(r => r.ok ? r.json() : { items: [], total: 0 })
-      .then((resp: { items: ApiProduct[]; total: number; page: number; pageSize: number }) => {
+      .then(r => r.ok ? r.json() : r.json().catch(()=>({ error: r.statusText, items: [], total: 0 })))
+      .then((resp: { items: ApiProduct[]; total: number; page: number; pageSize: number; error?: unknown }) => {
+        if (resp?.error) {
+          console.warn('[admin/produtos] fetch produtos erro', resp.error);
+        } else {
+          console.info('[admin/produtos] fetch produtos', { count: resp?.items?.length || 0, total: resp?.total, params: params.toString() });
+        }
         const items = resp.items || [];
         const inactiveKeys = new Set((catOptions||[]).filter(c => c.active === false).map(c=> String(c.key)));
           const map: AdminProduct[] = items.map((d) => ({
@@ -128,7 +133,7 @@ export default function AdminProdutos() {
         setProdutos(map);
         setTotal(resp.total || map.length);
       })
-      .catch(() => { setProdutos([]); setTotal(0); })
+      .catch((err) => { console.error('[admin/produtos] fetch produtos falhou', err); setProdutos([]); setTotal(0); })
       .finally(() => setLoading(false));
   }, [page, categoria, showInactiveCats, catOptions, showAllStatus]);
   const [showModal, setShowModal] = React.useState(false);
