@@ -134,7 +134,7 @@ export default function NovoPedidoModal({ onClose, onSaved, existingIds = [] }: 
       setLoadingCatalog(true);
       try {
         const [rp, rc] = await Promise.all([
-          fetch('/api/produtos?ativo=1&cats=active&pageSize=200'),
+          fetch('/api/produtos?ativo=1&pageSize=200'),
           fetch('/api/categorias?active=1&pageSize=200'),
         ]);
         if (!rp.ok) throw new Error('erro ao buscar produtos');

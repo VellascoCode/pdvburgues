@@ -1,93 +1,119 @@
-MVP 2.0 – Multi‑tenant e Planos
+MVP 2.0 — Plano de Evolução
 
-Objetivo: Evoluir do MVP 1 (uso único) para um SaaS multi‑tenant (vários estabelecimentos), com isolamento de dados, planos por assinatura e limites de uso.
+- **Objetivo geral:** transformar o MVP 1 (single-tenant) em um SaaS multi-tenant com planos, limites de uso e experiências específicas por tipo de negócio.
 
-Arquitetura multi‑tenant
-- Tenants: coleção `tenants` com campos básicos: `_id`, `slug`, `nome`, `status`, `createdAt`, `updatedAt`.
-- Escopo de dados: todas as entidades passam a carregar `tenantId` (ex.: `products.tenantId`, `categories.tenantId`, `orders.tenantId`, `users.tenantId`).
-- Chaves de index: criar índices `{ tenantId: 1, ... }` nas coleções críticas e índices compostos úteis (ex.: `{ tenantId: 1, categoria: 1 }`).
-- Sessão: `session.user.tenantId` propagado no JWT e usado nas APIs para filtrar dados do tenant atual.
-- Subdomínios/domínios: suporte a `slug.empresa.com` ou domínio custom; middleware identifica `tenantId` a partir do host.
+## 1. Multi-tenant
+- Criar coleção `tenants` (`_id`, `slug`, `nome`, `status`, `createdAt`, `updatedAt`, `type`, `classification`, `dbUri?`).
+- Incluir `tenantId` em todas as coleções (`users`, `products`, `categories`, `orders`, `logs`, `config`, etc.).
+- Indexes `{ tenantId: 1, ... }` para cada coleção; índices compostos para filtros mais usados.
+- Middleware identifica `tenantId` pelo host (`slug.dominio.com`) ou cabeçalho/admin switch; salva no JWT (`session.user.tenantId`).
+- Suporte a domínio custom futuro (mapa host → tenant).
 
-Planos e limites (mensal)
-- Planos: `free`, `starter`, `delivery`, `prime-delivery`.
+## 2. Planos e limites
 - Coleção `subscriptions`: `{ tenantId, plan, status, currentPeriodStart, currentPeriodEnd, limits }`.
-- Limites sugeridos:
-  - `free`: 100 pedidos/mês, 20 produtos, 2 usuários, sem delivery.
-  - `starter`: 1.000 pedidos/mês, 200 produtos, 10 usuários, delivery básico.
-  - `delivery`: 5.000 pedidos/mês, 500 produtos, 25 usuários, delivery completo.
-  - `prime-delivery`: 20.000 pedidos/mês, 2.000 produtos, 100 usuários, API/integrações.
-- Enforcamento: middleware nas rotas sensíveis (ex.: criar pedido/produto/usuário) consulta `subscriptions` e bloqueia acima do limite (log action específico + mensagem).
+- Planos sugeridos e limites mensais:
+  - `free`: 100 pedidos, 20 produtos, 2 usuários, sem delivery.
+  - `starter`: 1.000 pedidos, 200 produtos, 10 usuários, delivery básico.
+  - `delivery`: 5.000 pedidos, 500 produtos, 25 usuários, delivery completo.
+  - `prime-delivery`: 20.000 pedidos, 2.000 produtos, 100 usuários, integrações/API.
+- Middleware nas rotas sensíveis (criar pedido/produto/usuário, imprimir) faz checagem de limites (`403` com mensagem clara + log action dedicado).
 
-Tipos/Modo de empresa (tenant.type)
-- `fisico`: atendimento no local (balcão/mesa), impressão de comandas/tickets, fluxo de preparo em cozinha.
-- `delivery`: produção + entrega (motoboy/agregadores), rastreio e painel de despacho.
-- `multi`: combina físico + delivery no mesmo tenant (painéis paralelos e métricas consolidadas).
-- `servicos`: prestação de serviços e venda online (marketplaces como ML/Shopee, autônomos e pequenas empresas).
+## 3. Tipos de tenant (tenant.type)
+- `fisico`: atendimento local (balcão/mesa), impressão e fluxo de cozinha.
+- `delivery`: produção + entrega, painel de despacho/motoboy.
+- `multi`: combina físico + delivery (duas visões sincronizadas).
+- `servicos`: orçamentos/execução (oficinas, prestadores, marketplaces).
 
-Classificação (tenant.classification)
+## 4. Classificação (tenant.classification)
 - Taxonomia base: bar, restaurante, confeitaria, cafeteria, pizzaria, hamburgueria, lanchonete, padaria, sorveteria, açaiteria, pastelaria, food truck, mercearia, minimercado, conveniência, serviços gerais (elétrica, hidráulica, TI), moda, saúde/beleza, pet, outros.
-- Usos: presets de colunas do dashboard, templates de impressão, métricas e textos padrão.
+- Usa a classificação para presets de dashboards, textos de impressão e métricas especiais (ex.: padarias focam em produção matinal; delivery em tempo de rota).
 
-Dashboard por tipo/serviço e plano
-- Colunas configuráveis por `tenant.type` e `plan`.
-  - `fisico` (ex.): Em aguardo → Em preparo → Pronto → Entregue/Finalizado.
-  - `delivery` (ex.): Novos → Em preparo → Pronto/Aguardando Motoboy → Em rota → Completo.
-  - `servicos` (ex.): Novos → Orçamento → Aprovado → Em execução → Finalizado.
-- Planos podem restringir colunas (ex.: `free` só “Novos” e “Completo”).
-- Parametrização: coleção `boardPresets` com mapeamento por `tenant.type` + `plan`.
+## 5. Dashboards e colunas por plano/tipo
+- Coleção `boardPresets` definindo colunas e ícones por `tenant.type` + `plan`.
+- Exemplos:
+  - `fisico`: Em aguardo → Em preparo → Pronto → Pago/Finalizado.
+  - `delivery`: Novos → Em preparo → Pronto/Aguardando → Em rota → Completo.
+  - `servicos`: Novos → Orçamento → Aprovado → Em execução → Finalizado.
+- Planos mais baixos limitam quantidade de colunas/funcionalidades (ex.: `free` sem “Em rota”).
+- Permitir override manual por tenant (drag-and-drop + salvar).
 
-Orçamentos e execução (serviços)
-- Orçamento: entidade `quotes` ligada a `orders` (aprovação converte em pedido). Status compatíveis com colunas acima.
-- Execução: tempos, checklists, anexos e fotos; campos custom por classificação.
+## 6. Orçamentos e execução (serviços)
+- Entidade `quotes`: `{ tenantId, cliente, itens, status, total, validade }`.
+- Aprovação converte em pedido; rejeição gera log.
+- Execução: checklists, anexos/fotos, notas internas, histórico de tempo.
 
-Impressão (modelos)
-- Modelos por classificação e tipo: cupom não fiscal, etiqueta de produto/“bag tag”, ticket de produção/cozinha.
-- Motor de templates: `printTemplates` (per-tenant), com placeholders e CSS para 58mm/80mm/etiquetas.
-- Saídas: impressão local (WebUSB/Network), PDF e compartilhamento.
+## 7. Impressão e templates
+- Coleção `printTemplates` por tenant (padrões 58mm/80mm, etiquetas, bag tags, tickets de cozinha).
+- Template engine simples (handlebars ou mustache) com placeholders (`{{pedido.id}}`, `{{cliente.nome}}`).
+- Saídas: janela de impressão, PDF, download e envio direto (quando integrarmos com WebUSB/Network).
 
-Painéis por função (role‑based)
-- Cozinha: fila por prioridade/tempo, ações “Em preparo/Pronto”, modo toque.
-- Balcão/Recepção: checagem de pagamento/retirada, reimpressão, busca rápida.
-- Entregas/Despacho: agrupamento por motoboy, roteirização simples, status “A caminho/Entregue”.
-- Serviços: visão de orçamentos/tarefas do dia e execução.
+## 8. Painéis por função
+- **Cozinha:** fila por prioridade/tempo, botões grandes, modo toque, som ao mover.
+- **Balcão/Recepção:** busca rápida, reimpressão, checagem de pagamento e retirada.
+- **Despacho:** agrupamento por motoboy, estimativa de rota, status “Saiu/Entregue”.
+- **Serviços:** visão de orçamentos/tarefas do dia com filtros.
 
-Multi‑bancos (topologia de dados)
-- Banco central (Core): `auth`, `tenants`, `subscriptions`, billing, limites e auditoria agregada.
-- Bancos de dados por tenant (ou por grupo de tenants) para `orders`, `products`, `categories`, `logs` operacionais.
-- `tenants.dbUri`: define a conexão de dados do tenant; gateway seleciona o cluster na request.
-- Migração e sharding: ferramentas de realocação de tenant entre clusters sem downtime perceptível.
+## 9. Topologia de dados
+- Banco central (core) para `tenants`, `subscriptions`, billing, autenticação global.
+- Bancos por tenant (ou agrupamento) para dados operacionais; `tenants.dbUri` indica onde buscar.
+- Ferramenta de migração entre clusters (balanço de carga/futuro sharding).
 
-Autenticação/Autorização
-- Usuários vinculados a `tenantId`. Perfis: admin (10), gerente (7), atendente (3), leitura (1).
-- PIN hashed (scrypt) já implementado no MVP1; manter para MVP2.
-- Fluxo de convite/ativação por e‑mail/SMS (futuro).
+## 10. Auth e roles
+- Usuário sempre ligado a um `tenantId`.
+- Roles: admin (10), gerente (7), atendente (3), leitura (1). Colocar no JWT.
+- Convite/ativação por e-mail/SMS (MVP2.1); por ora, admin cria via painel e distribui PIN.
+- PIN continua como segundo fator (como hoje); avaliar migrar login web para e-mail/senha quando multi-tenant for aberto ao público.
 
-Migração do MVP1 para MVP2
-1) Criar `tenants` e atribuir `tenantId` fixo para os dados atuais (migração única).
-2) Adicionar campo `tenantId` nas coleções existentes (`users`, `products`, `categories`, `orders`, `logs`).
-3) Atualizar APIs para filtrar por `tenantId` a partir da sessão/host.
-4) Atualizar UI para respeitar escopo do tenant (listas, filtros, métricas).
-5) Implantar `subscriptions` e checagem de limites por rota.
-6) Ajustar logs para incluir `tenantId` e `plan` vigente.
+## 11. Migração do MVP1
+1. Criar `tenantId` fixo para os dados existentes (ex.: `tenantId: ObjectId("default")`).
+2. Adicionar `tenantId` em cada coleção e criar índices.
+3. Atualizar APIs e hooks (`useUserMeta`, etc.) para filtrar por `tenantId`.
+4. Atualizar UI (listas e selects) para respeitar o tenant atual.
+5. Implantar `subscriptions` com plan `prime` para todos (sem limites) durante a transição.
+6. Adicionar logs com `tenantId` e `plan` para auditoria.
 
-UI e navegação
-- Página de seleção/perfil do estabelecimento quando o usuário tiver acesso a vários tenants.
-- Configurações por tenant: categorias, horários, integrações, métodos de pagamento.
-- Billing: área de planos, upgrade/downgrade, histórico de cobrança.
+## 12. UI / Navegação
+- Tela de escolha de estabelecimento quando o usuário participa de vários tenants.
+- Configurações por tenant: categorias, horários, formas de pagamento, integrações, impressoras.
+- Área “Planos e Faturamento”: mostra plano atual, limites consumidos, botão de upgrade/downgrade.
 
-Checklist de Upgrade (por módulo)
-- Users/Auth: adicionar `tenantId`, alterar authorize do NextAuth para carregar `tenantId` e permissões. Migrar dados antigos.
-- Produtos/Categorias: incluir `tenantId`, rotas filtram por tenant; UI carrega e edita no escopo.
-- Pedidos/PDV: incluir `tenantId`; páginas e APIs filtram por tenant.
-- Logs/Auditoria: adicionar `tenantId` e `plan` (no momento do evento).
-- Configurações: mover chaves gerais para por‑tenant (ex.: métodos de pagamento e delivery).
+## 13. Roadmap
+- **Fase 1 (infra):** `tenantId` em todas as coleções, filtros nas APIs/UI, tela seletora de tenant.
+- **Fase 2 (planos):** `subscriptions`, limites, UI de planos, logs de bloqueio.
+- **Fase 3 (experiência):** painéis por tipo, templates de impressão, convites/roles.
+- **Fase 4 (serviços):** orçamentos, execução, anexos, integrações externas (marketplaces).
 
-Roadmap incremental
-- Fase 1: `tenantId` + filtros nas APIs e UI, sem billing.
-- Fase 2: assinaturas e limites com planos; telas de billing.
-- Fase 3: multi‑domínio/subdomínios, convites de usuários e roles avançadas.
+## 14. Compatibilidade / Observações
+- Mantemos o tenant default até finalizar a migração (todas as rotas devem aceitar requests sem `tenantId` e atribuir o default).
+- Logs administrativos devem ganhar `tenantId` + `plan` pra facilitar suporte.
+- Qualquer recurso que cite “global” deve ser revisado para saber se precisa de escopo (ex.: `config` vira `tenantConfig`).
+- Scripts de reset/teste precisam aceitar `tenantId` (para gerar bases isoladas e rodar e2e multi-tenant).
 
-Notas de compatibilidade
-- Todas as rotas devem permanecer compatíveis com MVP1 (tenant default único) até final da Fase 1.
-- Logs devem registrar `action` específico para eventos de limites (ex.: 900+ range) para análise futura.
+## 15. Notificações e automações
+- Motor de eventos (order.created, payment.approved, estoque.baixo) gravado em `events` com `tenantId` e payload.
+- Conectores de entrega: e-mail, SMS, WhatsApp, push (Web Push / Firebase) e webhook HTTP.
+- Regras simples por plano: `free` apenas e-mail; planos premium podem configurar múltiplos canais e agendamentos.
+- Templates de mensagem reutilizam o engine de impressão (placeholders, variáveis de pedido/cliente).
+
+## 16. Integrações externas
+- Marketplaces: iFood/Rappi/Uber Eats (importação automática de pedidos, status e catálogo). Expor API `partners`.
+- ERPs e contabilidade: exportação de vendas/caixa em CSV/JSON; webhooks para entradas/saídas.
+- Pagamentos: gateway único (Mercado Pago/Pagar.me) com split por tenant e conciliação automática.
+- Motoboys/Logística: integração com plataformas de entrega (Lalamove, Loggi) e print de etiquetas.
+
+## 17. Relatórios e BI
+- Coleção `analytics` agregada diariamente (pedidos, ticket médio, mix por categoria, margens).
+- Dashboard analítico com filtros por período, plano, tipo, tenant específico.
+- Exportação para Excel/CSV e API REST `GET /api/analytics` paginada.
+- Alertas automáticos (ticket médio abaixo do esperado, queda de pedidos, estoque crítico) via seção de notificações.
+
+## 18. Experiência Mobile / App Cliente
+- Versão PWA dedicada para motoboys e para aprovação de pedidos (lightweight). Autentica via PIN.
+- App público para clientes finais acompanharem pedidos, ver histórico e receber promoções por tenant.
+- Suporte a pagamentos no app (PIX/Cartão) com deep link para o caixa do tenant.
+
+## 19. Segurança e observabilidade
+- Rate limiting por tenant/usuário em endpoints sensíveis (login, PIN, criação de pedidos).
+- Auditoria cruzada (`auditLogs`) com IP, user-agent, tenantId e ação; retentiva mínima de 90 dias.
+- Monitoramento (Prometheus/Grafana) com métricas por tenant e alertas de limite próximo.
+- Backups automáticos por tenant + ferramenta de restore self-service para admins enterprise.
