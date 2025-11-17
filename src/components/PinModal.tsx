@@ -109,7 +109,7 @@ function PinModalContent({ title, message, onClose, onConfirm }: { title: string
   };
 
   return (
-        <motion.div className="fixed inset-0 z-[80] flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        <motion.div className="fixed inset-0 z-80 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <div className="absolute inset-0 bg-black" onClick={() => { playUiSound('close'); onClose(); }} />
       <motion.div className="relative w-full max-w-sm rounded-2xl border theme-border theme-surface p-6 shadow-2xl theme-text" initial={{ y: 24, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 24, scale: 0.95 }}>
         <div className="flex items-center gap-2 mb-3">
