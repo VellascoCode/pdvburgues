@@ -74,7 +74,7 @@ export default function AdminProdutos() {
     return () => { document.removeEventListener('mousedown', onClick); document.removeEventListener('keydown', onKey); };
   }, [openCat]);
   type ApiProduct = Partial<AdminProduct> & { _id?: string; id?: string };
-  const [showInactiveCats, setShowInactiveCats] = React.useState(false);
+  const [catStatusFilter, setCatStatusFilter] = React.useState<'all'|'active'|'inactive'>('all');
   const [showAllStatus, setShowAllStatus] = React.useState(true);
   const [stats, setStats] = React.useState<ProductsStatsData>({ catsTotal: 0, catsActive: 0, catsInactive: 0, prodTotal: 0, prodActiveCats: 0, prodInactiveCats: 0, prodActive: 0, prodInactive: 0, stockGt0: 0, stockInf: 0, stockZero: 0, promosActive: 0, combos: 0, uniques: 0 });
 
@@ -100,11 +100,8 @@ export default function AdminProdutos() {
     // busca removida
     if (categoria) {
       params.set('categoria', categoria);
-    } else {
-      const hasCatInfo = catOptions.length > 0;
-      if (hasCatInfo) {
-        params.set('cats', showInactiveCats ? 'inactive' : 'active');
-      }
+    } else if (catStatusFilter !== 'all' && catOptions.length > 0) {
+      params.set('cats', catStatusFilter);
     }
     if (showAllStatus) params.set('status', 'all');
     setLoading(true);
@@ -141,7 +138,7 @@ export default function AdminProdutos() {
       })
       .catch((err) => { console.error('[admin/produtos] fetch produtos falhou', err); setProdutos([]); setTotal(0); })
       .finally(() => setLoading(false));
-  }, [page, categoria, showInactiveCats, catOptions, showAllStatus]);
+  }, [page, categoria, catStatusFilter, catOptions, showAllStatus]);
   const [showModal, setShowModal] = React.useState(false);
 
   if (status !== 'authenticated') return null;
@@ -223,8 +220,22 @@ export default function AdminProdutos() {
                 <button className={`px-3 py-2 text-sm ${view==='cards'?'bg-zinc-800 text-white':'text-zinc-300'}`} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setView('cards'); }} aria-label="Cards"><FaThLarge/></button>
                 <button className={`px-3 py-2 text-sm ${view==='list'?'bg-zinc-800 text-white':'text-zinc-300'}`} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setView('list'); }} aria-label="Lista"><FaList/></button>
               </div>
-              <button className={`px-3 py-2 rounded border theme-border text-sm ${showInactiveCats ? 'text-amber-400' : 'text-zinc-300'}`} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setShowInactiveCats(v=>!v); setPage(1); }}>
-                {showInactiveCats ? <span className="inline-flex items-center gap-1"><FaEyeSlash /> Categorias inativas</span> : <span className="inline-flex items-center gap-1"><FaEye /> Categorias ativas</span>}
+              <button
+                className={`px-3 py-2 rounded border theme-border text-sm ${
+                  catStatusFilter === 'inactive' ? 'text-amber-400' : catStatusFilter === 'active' ? 'text-sky-400' : 'text-zinc-300'
+                }`}
+                onMouseEnter={()=>playUiSound('hover')}
+                onClick={()=>{
+                  playUiSound('click');
+                  setCatStatusFilter(prev => prev === 'all' ? 'active' : prev === 'active' ? 'inactive' : 'all');
+                  setPage(1);
+                }}
+              >
+                {catStatusFilter === 'inactive'
+                  ? <span className="inline-flex items-center gap-1"><FaEyeSlash /> Categorias inativas</span>
+                  : catStatusFilter === 'active'
+                    ? <span className="inline-flex items-center gap-1"><FaEye /> Categorias ativas</span>
+                    : <span className="inline-flex items-center gap-1"><FaEye /> Todas as categorias</span>}
               </button>
               <button className={`px-3 py-2 rounded border theme-border text-sm ${showAllStatus ? 'text-emerald-400' : 'text-zinc-300'}`} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setShowAllStatus(v=>!v); setPage(1); }}>
                 {showAllStatus ? <span className="inline-flex items-center gap-1"><FaEye /> Todos os status</span> : <span className="inline-flex items-center gap-1"><FaEyeSlash /> Apenas ativos</span>}
@@ -241,7 +252,7 @@ export default function AdminProdutos() {
             view={view}
             loading={loading}
             onOpen={(id) => setViewId(id)}
-            inactiveMode={!categoria && showInactiveCats}
+            inactiveMode={!categoria && catStatusFilter === 'inactive'}
           />
 
           {/* Paginação */}
