@@ -75,6 +75,7 @@ export default function AdminProdutos() {
   }, [openCat]);
   type ApiProduct = Partial<AdminProduct> & { _id?: string; id?: string };
   const [showInactiveCats, setShowInactiveCats] = React.useState(false);
+  const [showAllStatus, setShowAllStatus] = React.useState(true);
   const [stats, setStats] = React.useState<ProductsStatsData>({ catsTotal: 0, catsActive: 0, catsInactive: 0, prodTotal: 0, prodActiveCats: 0, prodInactiveCats: 0, prodActive: 0, prodInactive: 0, stockGt0: 0, stockInf: 0, stockZero: 0, promosActive: 0, combos: 0, uniques: 0 });
 
   // Carregar categorias uma vez
@@ -99,6 +100,7 @@ export default function AdminProdutos() {
     // busca removida
     if (categoria) params.set('categoria', categoria);
     else params.set('cats', showInactiveCats ? 'inactive' : 'active');
+    if (showAllStatus) params.set('status', 'all');
     setLoading(true);
     fetch(`/api/produtos?${params.toString()}`)
       .then(r => r.ok ? r.json() : { items: [], total: 0 })
@@ -128,7 +130,7 @@ export default function AdminProdutos() {
       })
       .catch(() => { setProdutos([]); setTotal(0); })
       .finally(() => setLoading(false));
-  }, [page, categoria, showInactiveCats, catOptions]);
+  }, [page, categoria, showInactiveCats, catOptions, showAllStatus]);
   const [showModal, setShowModal] = React.useState(false);
 
   if (status !== 'authenticated') return null;
@@ -212,6 +214,9 @@ export default function AdminProdutos() {
               </div>
               <button className={`px-3 py-2 rounded border theme-border text-sm ${showInactiveCats ? 'text-amber-400' : 'text-zinc-300'}`} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setShowInactiveCats(v=>!v); setPage(1); }}>
                 {showInactiveCats ? <span className="inline-flex items-center gap-1"><FaEyeSlash /> Categorias inativas</span> : <span className="inline-flex items-center gap-1"><FaEye /> Categorias ativas</span>}
+              </button>
+              <button className={`px-3 py-2 rounded border theme-border text-sm ${showAllStatus ? 'text-emerald-400' : 'text-zinc-300'}`} onMouseEnter={()=>playUiSound('hover')} onClick={()=>{ playUiSound('click'); setShowAllStatus(v=>!v); setPage(1); }}>
+                {showAllStatus ? <span className="inline-flex items-center gap-1"><FaEye /> Todos os status</span> : <span className="inline-flex items-center gap-1"><FaEyeSlash /> Apenas ativos</span>}
               </button>
               <button className="px-3 py-2 rounded brand-btn text-white inline-flex items-center gap-2" onMouseEnter={()=>playUiSound('hover')} onClick={()=> { playUiSound('click'); setShowModal(true); }}>
                 <FaPlus /> Adicionar
