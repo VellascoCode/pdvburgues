@@ -138,7 +138,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       update.prepItems = items.length ? items : [];
       logAction = 515;
     }
-    if (typeof body.stock === 'number' && body.stock >= 0) { update.stock = body.stock; logAction = 517; }
+    if (body.stock === 'inf') {
+      update.stock = 'inf';
+      logAction = 517;
+    } else if (typeof body.stock === 'number' && body.stock >= 0) {
+      update.stock = body.stock;
+      logAction = 517;
+    }
     if (Object.keys(update).length === 0) return res.status(400).json({ error: 'nada para atualizar' });
     update.updatedAt = now;
     const r = await col.updateOne({ _id: new ObjectId(id), deletado: { $ne: true } }, { $set: update });

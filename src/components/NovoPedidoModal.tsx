@@ -712,6 +712,11 @@ export default function NovoPedidoModal({ onClose, onSaved, existingIds = [] }: 
                 {filteredCatalog.map(c => {
                   const Icon = c.icon;
                   const isInf = c.stock === 'inf';
+                  const stockLabel = isInf
+                    ? '∞'
+                    : typeof c.stock === 'number'
+                      ? (c.stock > 999 ? '999+' : Math.max(0, c.stock))
+                      : '—';
                   return (
                     <button
                       key={c.id}
@@ -722,7 +727,7 @@ export default function NovoPedidoModal({ onClose, onSaved, existingIds = [] }: 
                       {/* Topo: ícone ocupando 2/5 da altura */}
                       <div className={`relative flex items-center justify-center basis-[40%] ${c.bg || 'bg-zinc-800/40'}`}>
                         <div className="absolute top-2 left-2 z-0 text-[10px] px-1.5 py-0.5 rounded-full border border-zinc-600 bg-zinc-900/70 text-zinc-300">
-                          {isInf ? '∞' : c.stock ?? '—'}
+                          {stockLabel}
                         </div>
                         <Icon className={`${c.cor} w-16 h-16 sm:w-20 sm:h-20 opacity-90`} />
                       </div>

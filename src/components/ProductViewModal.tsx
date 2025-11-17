@@ -298,9 +298,43 @@ export default function ProductViewModal({ open, id, onClose }: { open: boolean;
                         </div>
                       )}
                     </div>
-                    {data.stock !== 'inf' && (
-                      <button className="px-3 py-2 rounded-lg border theme-border text-zinc-300 hover:bg-zinc-800 inline-flex items-center gap-2" onClick={()=> setAskStock({ open:true, value: '' })}>Adicionar estoque</button>
-                    )}
+                    <button
+                      className="px-3 py-2 rounded-lg border theme-border text-zinc-300 hover:bg-zinc-800 inline-flex items-center gap-2"
+                      onClick={() => setAskStock({ open: true, value: '' })}
+                    >
+                      {data.stock === 'inf' ? 'Definir estoque numérico' : 'Adicionar estoque'}
+                    </button>
+                    <button
+                      className={`px-3 py-2 rounded-lg border theme-border inline-flex items-center gap-2 ${
+                        data.stock === 'inf'
+                          ? 'text-zinc-500 cursor-not-allowed opacity-50'
+                          : 'text-zinc-300 hover:bg-zinc-800'
+                      }`}
+                      disabled={data.stock === 'inf'}
+                      onClick={() =>
+                        setPin({
+                          open: true,
+                          title: 'Estoque infinito',
+                          message: 'Confirme com o PIN do admin para liberar o estoque infinito.',
+                          onConfirm: async (pinCode) => {
+                            const r = await fetch(`/api/produtos/${data._id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ stock: 'inf', pin: pinCode }),
+                            });
+                            if (r.ok) {
+                              playUiSound('success');
+                              setData(await r.json());
+                              return true;
+                            }
+                            playUiSound('error');
+                            return false;
+                          },
+                        })
+                      }
+                    >
+                      Estoque ∞
+                    </button>
                     <button className="px-3 py-2 rounded-lg border border-red-600 text-red-400 hover:bg-red-600/10 inline-flex items-center gap-2" onClick={()=> setPin({ open:true, title:'Excluir produto', message:'Insira seu PIN admin para excluir (soft) este produto.', onConfirm: async (p)=> { const r = await fetch(`/api/produtos/${data._id}`, { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pin: p })}); if (r.ok) { playUiSound('success'); onClose(); return true; } playUiSound('error'); return false; } })}><FaTrash /> Excluir</button>
                   </div>
                 </div>
@@ -469,7 +503,7 @@ export default function ProductViewModal({ open, id, onClose }: { open: boolean;
                   <input className="w-full rounded-lg border theme-border bg-zinc-900 text-zinc-200 px-3 py-2 mb-3" placeholder="Qtd (ex: 10)" value={askStock.value} onChange={(e)=> setAskStock({ open:true, value: String(e.target.value).replace(/\D/g,'') })} />
                   <div className="flex justify-end gap-2">
                     <button className="px-3 py-2 rounded-lg border theme-border text-zinc-300" onClick={()=> setAskStock({ open:false, value:'' })}>Cancelar</button>
-                    <button className="px-3 py-2 rounded-lg brand-btn text-white" onClick={()=> { const inc = Math.max(0, Math.floor(Number(askStock.value||'0'))); if (!inc) return; const novo = (typeof data.stock === 'number' ? data.stock : 0) + inc; setAskStock({ open:false, value:'' }); setPin({ open:true, title:'Adicionar estoque', onConfirm: async (p)=> { const r = await fetch(`/api/produtos/${data._id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ stock: novo, pin: p })}); if (r.ok) { playUiSound('success'); setData(await r.json()); return true; } playUiSound('error'); return false; } }); }}>Confirmar</button>
+                    <button className="px-3 py-2 rounded-lg brand-btn text-white" onClick={()=> { const inc = Math.max(0, Math.floor(Number(askStock.value||'0'))); if (!inc) return; const novo = data.stock === 'inf' ? inc : (typeof data.stock === 'number' ? data.stock : 0) + inc; setAskStock({ open:false, value:'' }); setPin({ open:true, title: data.stock === 'inf' ? 'Definir estoque' : 'Adicionar estoque', onConfirm: async (p)=> { const r = await fetch(`/api/produtos/${data._id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ stock: novo, pin: p })}); if (r.ok) { playUiSound('success'); setData(await r.json()); return true; } playUiSound('error'); return false; } }); }}>Confirmar</button>
                   </div>
                 </div>
               </motion.div>
