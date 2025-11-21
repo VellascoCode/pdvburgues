@@ -58,6 +58,8 @@ type PedidoDoc = {
   cliente?: { id?: string; nick?: string };
   timestamps?: Record<string, string>;
   criadoEm?: string;
+  pagamento?: string;
+  pagamentoStatus?: string;
 };
 
 const parseNumber = (value?: number | string) => {
@@ -111,7 +113,7 @@ async function ensureCompletos(doc: CashDoc, db: Db) {
     cliente: pedido.cliente?.nick || pedido.cliente?.id,
     pagamento: pedido.pagamento,
     pagamentoStatus: pedido.pagamentoStatus || (pedido.pagamento && pedido.pagamento !== 'PENDENTE' ? 'PAGO' : 'PENDENTE'),
-    pago: (pedido.pagamentoStatus || '').toUpperCase() === 'PAGO' || (pedido.pagamento && pedido.pagamento !== 'PENDENTE'),
+    pago: ((pedido.pagamentoStatus || '').toUpperCase() === 'PAGO') || (pedido.pagamento !== undefined && pedido.pagamento !== 'PENDENTE'),
   }));
   doc.completos = completions;
   return completions;

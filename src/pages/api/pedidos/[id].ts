@@ -208,7 +208,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return a + (isFinite(preco) ? preco : 0) * (isFinite(quantidade) ? quantidade : 0);
           }, 0);
           const cliente = pedido?.cliente?.nick || pedido?.cliente?.id || undefined;
-          const pago = paiementStatus === 'PAGO'; // typo? need correct var name? Not defined. discard patch.*** End Patch```Oops error. Need reapply carefully. Let's redo correct.
           const pagamentoStatus = pedido.pagamentoStatus || (pedido.pagamento && pedido.pagamento !== 'PENDENTE' ? 'PAGO' : 'PENDENTE');
           const pagamento = pedido.pagamento;
           const pago = pagamentoStatus === 'PAGO';

@@ -11,6 +11,8 @@
 - [x] API `/api/pedidos/[id]`: impede marcar status COMPLETO caso pagamento não esteja PAGO; normaliza método/status e só lança venda no caixa quando o pagamento for confirmado.
 - [x] Badges de pagamento nos pedidos completos (dashboard e admin) e fechamento do caixa bloqueado se houver pagamentos pendentes.
 - [x] Badges de completos agora inferem status pago quando o método existe (corrigido PENDENTE exibido erroneamente).
+- [x] Tipagem de históricos de caixa ajustada para pagamento/pago (corrige build).
+- [x] Build corrigido (Next 16): tipagem de pedidos em histórico e duplicata removida no fluxo de completos/pago.
 
 Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do MVP, baseado na documentação técnica do projeto (doc.md).
 
