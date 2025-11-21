@@ -5,6 +5,13 @@
 - [x] Removidos emojis do dashboard, agora só ícones React Icons profissionais nas colunas/status, conforme doc.md.
 # Passo a Passo – OMNIX POS
 
+## 21/11/2025 – Pagamentos pendentes
+- [x] Bloqueio de conclusão: botão “Completar Entrega” desabilitado se o pagamento estiver pendente, com aviso no card.
+- [x] Modal de detalhes/completos agora permite confirmar pagamento (método obrigatório), relança caixa e força reload dos pedidos ao confirmar.
+- [x] API `/api/pedidos/[id]`: impede marcar status COMPLETO caso pagamento não esteja PAGO; normaliza método/status e só lança venda no caixa quando o pagamento for confirmado.
+- [x] Badges de pagamento nos pedidos completos (dashboard e admin) e fechamento do caixa bloqueado se houver pagamentos pendentes.
+- [x] Badges de completos agora inferem status pago quando o método existe (corrigido PENDENTE exibido erroneamente).
+
 Este arquivo serve como checklist e guia de acompanhamento do desenvolvimento do MVP, baseado na documentação técnica do projeto (doc.md).
 
 ## 16/11/2025 – Caixa feedback

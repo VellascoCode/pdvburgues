@@ -33,7 +33,7 @@ type CashDoc = {
   items?: Record<string, number>;
   entradas?: Array<{ at: string; value: number; by: string; desc?: string }>;
   saidas?: Array<{ at: string; value: number; by: string; desc?: string }>;
-  completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string }>;
+  completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string; pagamento?: string; pagamentoStatus?: string; pago?: boolean }>;
 };
 
 type HistoryResponse = {

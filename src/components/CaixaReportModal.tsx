@@ -17,7 +17,7 @@ type CashDoc = {
   items?: Record<string, number>;
   entradas?: Array<{ at: string; value: number; by: string; desc?: string }>;
   saidas?: Array<{ at: string; value: number; by: string; desc?: string }>;
-  completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string }>;
+  completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string; pagamento?: string; pagamentoStatus?: string; pago?: boolean }>;
   pauses?: Array<{ at: string; by?: string; reason?: string }>;
 };
 
@@ -355,20 +355,32 @@ export default function CaixaReportModal({ open, onClose, session, title }: Caix
                           Vendas (completos)
                         </div>
                         <div className="space-y-2 max-h-40 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
-                          {(sess.completos || []).slice().reverse().slice(0,20).map((c) => (
-                            <div 
-                              key={`${c.id}-${c.at}`} 
-                              className="w-full p-2 rounded-lg border border-zinc-700/50 bg-zinc-800/40 hover:bg-zinc-800/60 transition-colors flex items-center justify-between"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="text-[11px] text-zinc-500">{new Date(c.at).toLocaleString()}</div>
-                                <div className="text-xs font-semibold text-zinc-200 truncate">{c.id}</div>
+                          {(sess.completos || []).slice().reverse().slice(0,20).map((c) => {
+                            const inferredStatus = (c.pagamentoStatus || '').toUpperCase();
+                            const badgeStatus = inferredStatus || ((c.pagamento && c.pagamento !== 'PENDENTE') ? 'PAGO' : 'PENDENTE');
+                            const isPaid = c.pago === true || badgeStatus === 'PAGO';
+                            return (
+                              <div 
+                                key={`${c.id}-${c.at}`} 
+                                className="w-full p-2 rounded-lg border border-zinc-700/50 bg-zinc-800/40 hover:bg-zinc-800/60 transition-colors flex items-center justify-between"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-[11px] text-zinc-500">{new Date(c.at).toLocaleString()}</div>
+                                  <div className="text-xs font-semibold text-zinc-200 truncate flex items-center gap-2">
+                                    <span>{c.id}</span>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                                      isPaid ? 'border-emerald-400 text-emerald-200 bg-emerald-500/10' : 'border-yellow-400 text-yellow-200 bg-yellow-500/10'
+                                    }`}>
+                                      {isPaid ? 'PAGO' : 'PENDENTE'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right ml-3">
+                                  <div className="text-sm font-bold text-emerald-400">R$ {Number(c.total || 0).toFixed(2)}</div>
+                                </div>
                               </div>
-                              <div className="text-right ml-3">
-                                <div className="text-sm font-bold text-emerald-400">R$ {Number(c.total || 0).toFixed(2)}</div>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                           {(!sess.completos || sess.completos.length===0) && (
                             <div className="text-zinc-500 text-xs text-center py-3">—</div>
                           )}

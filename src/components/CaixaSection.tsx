@@ -7,7 +7,7 @@ import { on, off, emit } from '@/utils/eventBus';
 import { useUserMeta } from '@/hooks/useUserMeta';
 
 type CashTotals = { vendas: number; entradas: number; saidas: number; porPagamento: Record<string, number> };
-type CashResumo = { id: string; at: string; items: number; total: number; cliente?: string };
+type CashResumo = { id: string; at: string; items: number; total: number; cliente?: string; pagamento?: string; pagamentoStatus?: string; pago?: boolean };
 type CashSession = {
   sessionId: string;
   openedAt: string;

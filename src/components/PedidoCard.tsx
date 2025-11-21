@@ -48,6 +48,8 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
   };
   let taxaEntrega = parseCurrency(pedido.taxaEntrega as unknown);
   if (Math.abs(taxaEntrega) < 0.005) taxaEntrega = 0; // evita 0.01 por arredondamento
+  const paymentStatus = (pedido.pagamentoStatus || 'PENDENTE').toString().toUpperCase();
+  const pagamentoPendente = paymentStatus !== 'PAGO';
   
   // Gera avatar baseado no ID
   const avatar = (pedido.id?.[0] || "#").toUpperCase() + (pedido.id?.[1] || "").toUpperCase();
@@ -343,15 +345,29 @@ export default function PedidoCard({ pedido, status, now, onStatusChange, onOpen
           </>
         )}
         {status === "EM_ROTA" && (
-          <button
-            className="col-span-2 py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 bg-green-500/10 text-green-500 border border-green-500 hover:bg-green-500/20 flex items-center justify-center gap-2"
-            onMouseEnter={() => playUiSound('hover')}
-            onClick={() => { playUiSound('click'); onStatusChange(pedido.id, "COMPLETO"); }}
-            draggable={false}
-          >
-            <FaCheckCircle className="text-sm" />
-            Completar Entrega
-          </button>
+          <>
+            <button
+              className={`col-span-2 py-2.5 px-3 rounded-lg font-semibold text-xs transition-all duration-200 border flex items-center justify-center gap-2 ${
+                pagamentoPendente
+                  ? 'bg-zinc-800/40 text-zinc-400 border-zinc-700 cursor-not-allowed'
+                  : 'bg-green-500/10 text-green-500 border-green-500 hover:bg-green-500/20'
+              }`}
+              onMouseEnter={() => playUiSound('hover')}
+              onClick={() => { if (pagamentoPendente) return; playUiSound('click'); onStatusChange(pedido.id, "COMPLETO"); }}
+              disabled={pagamentoPendente}
+              draggable={false}
+              title={pagamentoPendente ? 'Confirme o pagamento antes de completar.' : 'Concluir e lançar no caixa'}
+            >
+              <FaCheckCircle className="text-sm" />
+              Completar Entrega
+            </button>
+            {pagamentoPendente && (
+              <div className="col-span-2 text-[11px] text-yellow-300 mt-1 flex items-center gap-1">
+                <span className="inline-flex px-2 py-0.5 rounded border border-yellow-500/40 bg-yellow-500/10 text-yellow-200">Pagamento pendente</span>
+                <span>Confirme o pgto nos detalhes antes de finalizar.</span>
+              </div>
+            )}
+          </>
         )}
         {muitoAtrasado && (
           <button

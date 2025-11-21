@@ -3,6 +3,31 @@ import { useSession } from 'next-auth/react';
 
 export type UserMeta = { access?: string; type?: number; status?: number; nome?: string };
 
+type SharedState = {
+  access?: string;
+  meta: UserMeta | null;
+  error: string | null;
+  lastFetch: number;
+  inFlight: Promise<UserMeta | null> | null;
+};
+
+const shared: SharedState = {
+  access: undefined,
+  meta: null,
+  error: null,
+  lastFetch: 0,
+  inFlight: null,
+};
+
+const MIN_GAP_MS = 5000;
+
+async function fetchMeta(access: string): Promise<UserMeta | null> {
+  const resp = await fetch(`/api/users/check?access=${access}`, { cache: 'no-store' });
+  if (!resp.ok) throw new Error('failed');
+  const data = await resp.json();
+  return { access, type: Number(data.type ?? 0), status: Number(data.status ?? 0), nome: data.nome };
+}
+
 export function useUserMeta(pollInterval = 30000) {
   const { data: session } = useSession();
   const access = (session?.user as { access?: string } | undefined)?.access;
@@ -13,30 +38,60 @@ export function useUserMeta(pollInterval = 30000) {
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setInterval> | null = null;
-    async function load() {
+
+    const updateLocal = () => {
+      if (!active) return;
+      setMeta(shared.meta);
+      setError(shared.error);
+    };
+
+    async function load(force = false) {
       if (!access) {
-        if (active) setMeta(null);
+        if (active) {
+          setMeta(null);
+          setError(null);
+        }
         return;
       }
-      setLoading(true);
-      setError(null);
-      try {
-        const resp = await fetch(`/api/users/check?access=${access}`, { cache: 'no-store' });
-        if (!resp.ok) throw new Error('failed');
-        const data = await resp.json();
-        if (active) setMeta({ access, type: Number(data.type ?? 0), status: Number(data.status ?? 0), nome: data.nome });
-      } catch (err) {
-        if (active) {
-          setError((err as Error).message);
-          setMeta(null);
+      const now = Date.now();
+      const sameAccess = shared.access === access;
+      const gapOk = now - shared.lastFetch < Math.max(MIN_GAP_MS, pollInterval / 2);
+      if (sameAccess) {
+        updateLocal();
+        if (!force && (shared.inFlight || gapOk)) {
+          return;
         }
-      } finally {
-        if (active) setLoading(false);
       }
+      shared.access = access;
+      setLoading(true);
+      if (!shared.inFlight) {
+        shared.inFlight = fetchMeta(access)
+          .then((m) => {
+            shared.meta = m;
+            shared.error = null;
+            shared.lastFetch = Date.now();
+            return m;
+          })
+          .catch((err: Error) => {
+            shared.meta = null;
+            shared.error = err.message || 'erro';
+            shared.lastFetch = Date.now();
+            throw err;
+          })
+          .finally(() => {
+            shared.inFlight = null;
+          });
+      }
+      try {
+        await shared.inFlight;
+      } catch {}
+      updateLocal();
+      if (active) setLoading(false);
     }
-    load();
+
+    load(true);
     if (pollInterval > 0) {
-      timer = setInterval(load, pollInterval);
+      timer = setInterval(() => load(false), pollInterval);
     }
     return () => {
       active = false;

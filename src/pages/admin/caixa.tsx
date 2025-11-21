@@ -28,7 +28,7 @@ type SystemConfig = { storeName?: string; business?: BusinessConfig };
 
 type CashTotals = { vendas?: number; entradas?: number; saidas?: number; porPagamento?: Record<string, number> };
 type CashEntry = { at: string; value: number; by: string; desc?: string };
-type CashCompletion = { id: string; at: string; items: number; total: number; cliente?: string };
+type CashCompletion = { id: string; at: string; items: number; total: number; cliente?: string; pagamento?: string; pagamentoStatus?: string; pago?: boolean };
 type CashSession = {
   sessionId: string;
   openedAt: string;
@@ -276,14 +276,27 @@ function fmtFuncionamento() {
                   </div>
                 ) : (
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {pedidosCompletos.map((pedido) => (
+                    {pedidosCompletos.map((pedido) => {
+                      const inferredStatus = (pedido.pagamentoStatus || '').toUpperCase();
+                      const badgeStatus = inferredStatus || ((pedido.pagamento && pedido.pagamento !== 'PENDENTE') ? 'PAGO' : 'PENDENTE');
+                      const isPaid = pedido.pago === true || badgeStatus === 'PAGO';
+                      return (
                       <button
                         key={pedido.id}
                         onClick={() => openPedidoModal(pedido.id)}
                         className="text-left theme-surface theme-border border rounded-xl p-3 hover:border-emerald-500/60 transition-colors"
                       >
-                        <div className="flex items-center justify-between text-sm text-white font-semibold">
-                          <span>Pedido #{pedido.id}</span>
+                        <div className="flex items-center justify-between text-sm text-white font-semibold gap-2">
+                          <div className="flex items-center gap-2">
+                            <span>Pedido #{pedido.id}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                              isPaid
+                                ? 'border-emerald-400 text-emerald-200 bg-emerald-500/10'
+                                : 'border-yellow-400 text-yellow-200 bg-yellow-500/10'
+                            }`}>
+                              {isPaid ? 'PAGO' : 'PENDENTE'}
+                            </span>
+                          </div>
                           <span>{formatCurrency(pedido.total)}</span>
                         </div>
                         <div className="text-xs text-zinc-500 mt-1">
@@ -291,7 +304,7 @@ function fmtFuncionamento() {
                         </div>
                         <div className="text-xs text-zinc-500 mt-1">Cliente: {pedido.cliente || '—'}</div>
                       </button>
-                    ))}
+                    );})}
                   </div>
                 )}
               </div>

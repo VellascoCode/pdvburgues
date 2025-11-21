@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaCheckCircle, FaClock, FaHourglassHalf, FaMotorcycle, FaTimes, FaUtensils } from 'react-icons/fa';
 import { formatCurrency } from '@/utils/currency';
+import { confirmarPagamentoPedido } from '@/lib/pedidosClient';
+import { emit } from '@/utils/eventBus';
 
 type PedidoItem = string | { nome: string; quantidade?: number; preco?: number|string };
 type Pedido = {
@@ -11,11 +13,19 @@ type Pedido = {
   timestamps?: Partial<Record<'EM_AGUARDO'|'EM_PREPARO'|'PRONTO'|'EM_ROTA'|'COMPLETO'|'CANCELADO', string>>;
   entrega?: string;
   pagamento?: string;
+  pagamentoStatus?: 'PAGO'|'PENDENTE'|'CANCELADO'|string;
   code?: string;
   troco?: number;
   taxaEntrega?: number | string;
   awards?: Array<{ ev?: string; v?: number; at?: string }>;
 };
+const PAYMENT_METHODS = [
+  { key: 'DINHEIRO', label: 'Dinheiro' },
+  { key: 'CARTAO', label: 'Cartão' },
+  { key: 'PIX', label: 'PIX' },
+  { key: 'ONLINE', label: 'Online' },
+] as const;
+type PaymentMethod = typeof PAYMENT_METHODS[number]['key'];
 
 const STEPS = [
   { key:'EM_AGUARDO', label:'Aguardo', icon: FaHourglassHalf },
@@ -29,8 +39,17 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('DINHEIRO');
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
+  const [confirmSuccess, setConfirmSuccess] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const normalizePaymentMethod = (raw: unknown): PaymentMethod | null => {
+    if (typeof raw !== 'string') return null;
+    const v = raw.trim().toUpperCase();
+    return PAYMENT_METHODS.find((m) => m.key === v)?.key ?? null;
+  };
 
   useEffect(() => {
     let active = true;
@@ -49,6 +68,12 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
     load();
     return () => { active = false; };
   }, [open, id]);
+
+  useEffect(() => {
+    if (!pedido) return;
+    const norm = normalizePaymentMethod(pedido.pagamento);
+    if (norm) setPaymentMethod(norm);
+  }, [pedido]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,6 +110,31 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
     if (min < 60) return `há ${min}min`;
     const h = Math.floor(min/60); const rm = min%60;
     return `há ${h}h${rm?` ${rm}min`:''}`;
+  };
+  const paymentStatus = (pedido?.pagamentoStatus || 'PENDENTE').toString().toUpperCase();
+  const isPago = paymentStatus === 'PAGO';
+  const statusClass =
+    paymentStatus === 'PAGO'
+      ? 'border-emerald-500 text-emerald-300 bg-emerald-500/10'
+      : paymentStatus === 'CANCELADO'
+        ? 'border-red-500 text-red-300 bg-red-500/10'
+        : 'border-yellow-500 text-yellow-300 bg-yellow-500/10';
+  const handleConfirmPayment = async () => {
+    if (!id) return;
+    setConfirmError('');
+    setConfirmSuccess(false);
+    setConfirmingPayment(true);
+    const result = await confirmarPagamentoPedido(id, paymentMethod);
+    setConfirmingPayment(false);
+    if (!result.ok) {
+      setConfirmError(result.error || 'Não foi possível confirmar o pagamento.');
+      return;
+    }
+    setPedido((prev) => (prev ? { ...prev, pagamentoStatus: 'PAGO', pagamento: paymentMethod } : prev));
+    setConfirmSuccess(true);
+    emit('cash:refresh');
+    emit('dashboard:reloadPedidos');
+    setTimeout(() => setConfirmSuccess(false), 1500);
   };
 
   return (
@@ -157,6 +207,38 @@ export default function PedidoDetalhesModal({ open, id, onClose }: { open: boole
                 <h4 className="text-sm font-semibold text-zinc-200 mb-2">Cliente & Entrega</h4>
                 <div className="text-sm text-zinc-400">Entrega: {pedido?.entrega || '—'}</div>
                 <div className="text-sm text-zinc-400">Pagamento: {pedido?.pagamento || '—'}</div>
+                <div className="text-sm text-zinc-400 flex items-center gap-2">
+                  <span>Status do pagamento:</span>
+                  <span className={`text-[11px] px-2 py-1 rounded-full border ${statusClass}`}>
+                    {paymentStatus === 'PAGO' ? 'Pago' : paymentStatus === 'CANCELADO' ? 'Cancelado' : 'Pendente'}
+                  </span>
+                </div>
+                {!isPago && (
+                  <div className="mt-1 border border-yellow-500/30 bg-yellow-500/5 rounded-lg p-3 space-y-2">
+                    <div className="text-xs text-yellow-200 font-semibold">Pagamento pendente</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-[11px] text-zinc-400">Forma</label>
+                      <select
+                        className="rounded-md border border-yellow-500/40 bg-black/40 text-sm text-zinc-200 px-2 py-1 focus:outline-none focus:ring-2 focus:ring-yellow-500/40"
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                      >
+                        {PAYMENT_METHODS.map((m) => (
+                          <option key={m.key} value={m.key}>{m.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleConfirmPayment}
+                        disabled={confirmingPayment}
+                        className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed transition"
+                      >
+                        {confirmingPayment ? 'Confirmando...' : 'Confirmar pgto'}
+                      </button>
+                    </div>
+                    {confirmError && <div className="text-[11px] text-red-300">{confirmError}</div>}
+                    {confirmSuccess && <div className="text-[11px] text-emerald-300">Pagamento confirmado e lançado no caixa.</div>}
+                  </div>
+                )}
                 {(() => {
                   const raw = pedido?.taxaEntrega as unknown;
                   const val = typeof raw === 'number' ? raw : (typeof raw === 'string' && raw.trim() ? parseFloat(raw.replace(/[^0-9.,]/g,'').replace(',', '.')) : 0);

@@ -24,7 +24,7 @@ import { playUiSound } from "../utils/sound";
 import { on, off, emit } from '@/utils/eventBus';
 import { listPedidos } from '@/lib/pedidosClient';
 import { usePedidoStatusUpdater } from '@/hooks/usePedidoStatus';
-type CashResumo = { id: string; at: string; items: number; total: number; cliente?: string; cls?: number[] };
+type CashResumo = { id: string; at: string; items: number; total: number; cliente?: string; cls?: number[]; pagamento?: string; pagamentoStatus?: string; pago?: boolean };
 
 type BoardColumnConfig = {
   id: string;
@@ -374,6 +374,12 @@ export default function Dashboard({ boardColumns, allowedColumns }: DashboardPro
     return () => off('dashboard:showCancelados', openCancelados);
   }, []);
 
+  useEffect(() => {
+    const reloadPedidos = () => { reloadFromServer(); };
+    on('dashboard:reloadPedidos', reloadPedidos);
+    return () => off('dashboard:reloadPedidos', reloadPedidos);
+  }, [reloadFromServer]);
+
   // Ouvir botão "Novo Pedido" emitido pela CaixaSection
   useEffect(() => {
     const h = async () => {
@@ -531,7 +537,11 @@ export default function Dashboard({ boardColumns, allowedColumns }: DashboardPro
                   <p className="text-sm">Nenhum pedido completo</p>
                 </div>
               ) : (
-                cashCompletos.map((c) => (
+                cashCompletos.map((c) => {
+                  const inferredStatus = (c.pagamentoStatus || '').toUpperCase();
+                  const badgeStatus = inferredStatus || ((c.pagamento && c.pagamento !== 'PENDENTE') ? 'PAGO' : 'PENDENTE');
+                  const isPaid = c.pago === true || badgeStatus === 'PAGO';
+                  return (
                   <button
                     key={`${c.id}-${c.at}`}
                     className="w-full text-left flex items-center justify-between gap-3 rounded-xl border border-green-600 bg-green-500/10 hover:bg-green-500/15 transition-all p-3 shadow-lg shadow-green-900/20"
@@ -540,7 +550,16 @@ export default function Dashboard({ boardColumns, allowedColumns }: DashboardPro
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-[11px] text-green-300/80">{new Date(c.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                      <div className="text-sm font-semibold text-green-200 truncate">{c.id}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-semibold text-green-200 truncate">{c.id}</div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                          isPaid
+                            ? 'border-emerald-400 text-emerald-200 bg-emerald-500/10'
+                            : 'border-yellow-400 text-yellow-200 bg-yellow-500/10'
+                        }`}>
+                          {isPaid ? 'PAGO' : 'PENDENTE'}
+                        </span>
+                      </div>
                       <div className="text-xs text-green-300/80 truncate">{c.cliente || '-'}</div>
                       {Array.isArray(c.cls) && (
                         <div className="mt-1 grid grid-cols-3 gap-1 text-[11px] text-green-300/80">
@@ -555,7 +574,8 @@ export default function Dashboard({ boardColumns, allowedColumns }: DashboardPro
                       <div className="text-sm font-bold text-emerald-300">R$ {Number(c.total || 0).toFixed(2)}</div>
                     </div>
                   </button>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

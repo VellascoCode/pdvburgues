@@ -27,7 +27,7 @@ type CashDoc = {
   items?: Record<string, number>;
   entradas?: Array<{ at: string; value: number; by: string; desc?: string }>;
   saidas?: Array<{ at: string; value: number; by: string; desc?: string }>;
-  completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string }>;
+  completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string; pagamento?: string; pagamentoStatus?: string; pago?: boolean }>;
 };
 
 type CashSummary = {
@@ -99,7 +99,7 @@ async function ensureCompletos(doc: CashDoc, db: Db) {
   const pedidos = await pedidosCol
     .find(
       { sessionId: doc.sessionId, status: 'COMPLETO' },
-      { projection: { id: 1, itens: 1, total: 1, cliente: 1, timestamps: 1, criadoEm: 1 } }
+      { projection: { id: 1, itens: 1, total: 1, cliente: 1, timestamps: 1, criadoEm: 1, pagamento: 1, pagamentoStatus: 1 } }
     )
     .sort({ criadoEm: 1 })
     .toArray();
@@ -109,6 +109,9 @@ async function ensureCompletos(doc: CashDoc, db: Db) {
     items: countPedidoItens(pedido),
     total: computePedidoTotal(pedido),
     cliente: pedido.cliente?.nick || pedido.cliente?.id,
+    pagamento: pedido.pagamento,
+    pagamentoStatus: pedido.pagamentoStatus || (pedido.pagamento && pedido.pagamento !== 'PENDENTE' ? 'PAGO' : 'PENDENTE'),
+    pago: (pedido.pagamentoStatus || '').toUpperCase() === 'PAGO' || (pedido.pagamento && pedido.pagamento !== 'PENDENTE'),
   }));
   doc.completos = completions;
   return completions;

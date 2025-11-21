@@ -38,3 +38,26 @@ export async function createPedido(pedido: Pedido): Promise<{ ok: boolean; data?
   }
 }
 
+export async function confirmarPagamentoPedido(
+  id: string,
+  pagamento: 'DINHEIRO' | 'CARTAO' | 'PIX' | 'ONLINE'
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const r = await fetch(`/api/pedidos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pagamentoStatus: 'PAGO', pagamento }),
+    });
+    if (!r.ok) {
+      let msg = 'Falha ao confirmar pagamento';
+      try {
+        const j = await r.json();
+        if (j?.error) msg = j.error;
+      } catch {}
+      return { ok: false, error: msg };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'Sem conexão com o servidor' };
+  }
+}

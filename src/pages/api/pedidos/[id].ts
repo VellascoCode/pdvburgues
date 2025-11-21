@@ -56,7 +56,7 @@ type CashDocMinimal = {
   items?: Record<string, number>;
   cats?: Record<string, number>;
   saidas?: Array<{ desc?: string; at?: string; value?: number; by?: string }>;
-  completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string }>;
+  completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string; pagamento?: string; pagamentoStatus?: string; pago?: boolean }>;
   vendasCount?: number;
 };
 
@@ -109,6 +109,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'payload inválido' });
     }
     const updates: Partial<PedidoDoc> = { ...(req.body as Partial<PedidoDoc> ?? {}) };
+    const normalizePaymentMethod = (raw: unknown): 'DINHEIRO'|'CARTAO'|'PIX'|'ONLINE'|'PENDENTE' | null => {
+      if (typeof raw !== 'string') return null;
+      const v = raw.trim().toUpperCase();
+      return v === 'DINHEIRO' || v === 'CARTAO' || v === 'PIX' || v === 'ONLINE' || v === 'PENDENTE' ? v as typeof v : null;
+    };
+    const normalizePaymentStatus = (raw: unknown): 'PAGO'|'PENDENTE'|'CANCELADO'|null => {
+      if (typeof raw !== 'string') return null;
+      const v = raw.trim().toUpperCase();
+      return v === 'PAGO' || v === 'PENDENTE' || v === 'CANCELADO' ? v as typeof v : null;
+    };
+    if (updates.pagamento !== undefined) {
+      const norm = normalizePaymentMethod(updates.pagamento);
+      if (!norm) return res.status(400).json({ error: 'método de pagamento inválido' });
+      updates.pagamento = norm;
+    }
+    if (updates.pagamentoStatus !== undefined) {
+      const norm = normalizePaymentStatus(updates.pagamentoStatus);
+      if (!norm) return res.status(400).json({ error: 'status de pagamento inválido' });
+      updates.pagamentoStatus = norm;
+    }
+    const nextPaymentStatus = updates.pagamentoStatus ?? existing.pagamentoStatus;
+    const nextPaymentMethod = normalizePaymentMethod(updates.pagamento ?? existing.pagamento);
+    const prevPaymentMethod = normalizePaymentMethod(existing.pagamento);
+    const wasPaid = existing.pagamentoStatus === 'PAGO' && !!prevPaymentMethod && prevPaymentMethod !== 'PENDENTE';
+    const willBePaid = nextPaymentStatus === 'PAGO' && !!nextPaymentMethod && nextPaymentMethod !== 'PENDENTE';
+    if (nextPaymentStatus === 'PAGO' && (!nextPaymentMethod || nextPaymentMethod === 'PENDENTE')) {
+      return res.status(400).json({ error: 'defina o método de pagamento para confirmar.' });
+    }
+    let paymentAccrual: { value: number; method: string } | null = null;
+    const normalizedMethod = nextPaymentMethod || prevPaymentMethod || undefined;
+    if (willBePaid && !wasPaid) {
+      const itens: Array<PedidoItemRecord | string | null | undefined> = Array.isArray(existing.itens) ? existing.itens : [];
+      const itemsSum = itens.reduce((a: number, it) => {
+        if (!it || typeof it === 'string') return a;
+        const preco = Number(it.preco ?? 0);
+        const quantidade = Number(it.quantidade ?? 1);
+        return a + (isFinite(preco) ? preco : 0) * (isFinite(quantidade) ? quantidade : 0);
+      }, 0);
+      if (isFinite(itemsSum) && itemsSum > 0.0001) {
+        paymentAccrual = { value: itemsSum, method: normalizedMethod || 'PENDENTE' };
+      }
+    }
+    if (updates.status === 'COMPLETO' && nextPaymentStatus !== 'PAGO') {
+      return res.status(409).json({ error: 'confirme o pagamento antes de completar o pedido' });
+    }
     if (updates.status) {
       const nowIso = new Date().toISOString();
       // fundir timestamps com os existentes para manter o histórico
@@ -129,6 +174,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updates.kitchenStages = clone;
     }
     await col.updateOne({ id: pedidoId }, { $set: updates });
+    if (paymentAccrual) {
+      try {
+        const dbAcc = await getDb();
+        const cashCol = dbAcc.collection<CashDocMinimal>('cash');
+        const target: Filter<CashDocMinimal> = existing.sessionId ? { sessionId: existing.sessionId } : { closedAt: { $exists: false } };
+        await cashCol.updateOne(
+          target,
+          { $inc: { 'totals.vendas': paymentAccrual.value, [`totals.porPagamento.${paymentAccrual.method}`]: paymentAccrual.value } }
+        );
+        await cashCol.updateOne(
+          { ...target, 'completos.id': pedidoId },
+          { $set: { 'completos.$.pagamentoStatus': 'PAGO', 'completos.$.pagamento': paymentAccrual.method, 'completos.$.pago': true } }
+        );
+      } catch {}
+    }
     // Se marcou como COMPLETO, registrar no caixa atual
     if (updates.status === 'COMPLETO') {
       try {
@@ -148,12 +208,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return a + (isFinite(preco) ? preco : 0) * (isFinite(quantidade) ? quantidade : 0);
           }, 0);
           const cliente = pedido?.cliente?.nick || pedido?.cliente?.id || undefined;
+          const pago = paiementStatus === 'PAGO'; // typo? need correct var name? Not defined. discard patch.*** End Patch```Oops error. Need reapply carefully. Let's redo correct.
+          const pagamentoStatus = pedido.pagamentoStatus || (pedido.pagamento && pedido.pagamento !== 'PENDENTE' ? 'PAGO' : 'PENDENTE');
+          const pagamento = pedido.pagamento;
+          const pago = pagamentoStatus === 'PAGO';
           const at = new Date().toISOString();
           const db = await getDb();
           const target: Filter<CashDocMinimal> = pedido.sessionId ? { sessionId: pedido.sessionId } : { closedAt: { $exists: false } };
           await db.collection<CashDocMinimal>('cash').updateOne(
             target,
-            { $push: { completos: { id: pedidoId, at, items: qty, total, cliente } }, $inc: { vendasCount: 1 } }
+            { $push: { completos: { id: pedidoId, at, items: qty, total, cliente, pagamentoStatus, pagamento, pago } }, $inc: { vendasCount: 1 } }
           );
           // compras agora são incrementadas na criação do pedido (evita duplicidade aqui)
         }

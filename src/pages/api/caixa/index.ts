@@ -27,7 +27,7 @@ type CashDoc = {
   cats: Record<string, number>; // categoria => quantidade
   entradas?: Array<{ at: string; value: number; by: string; desc?: string }>;
   saidas?: Array<{ at: string; value: number; by: string; desc?: string }>;
-  completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string }>; // resumo de completos
+  completos?: Array<{ id: string; at: string; items: number; total: number; cliente?: string; pagamento?: string; pagamentoStatus?: string; pago?: boolean }>; // resumo de completos
   totalsCents?: TotalsCents;
 };
 
@@ -53,6 +53,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { open } = await getOpenCash();
     const status: 'FECHADO'|'ABERTO'|'PAUSADO' = !open ? 'FECHADO' : open.paused ? 'PAUSADO' : 'ABERTO';
     if (!open) return res.status(200).json({ status, session: null });
+    try {
+      const comps = Array.isArray(open.completos) ? open.completos : [];
+      const missing = comps.filter((c) => !c.pagamentoStatus || !c.pagamento).map((c) => c.id).filter(Boolean);
+      if (missing.length) {
+        const pedidosCol = (await getDb()).collection('pedidos');
+        const pedidosDocs = await pedidosCol.find({ id: { $in: missing } }, { projection: { id: 1, pagamento: 1, pagamentoStatus: 1 } }).toArray();
+        const map = new Map<string, { pagamento?: string; pagamentoStatus?: string }>();
+        for (const p of pedidosDocs) map.set(p.id as string, { pagamento: p.pagamento as string | undefined, pagamentoStatus: p.pagamentoStatus as string | undefined });
+        open.completos = comps.map((c) => {
+          const extra = c.id ? map.get(c.id) : undefined;
+          const pg = c.pagamento || extra?.pagamento;
+          const st = c.pagamentoStatus || extra?.pagamentoStatus || (pg && pg !== 'PENDENTE' ? 'PAGO' : undefined);
+          const pago = typeof c.pago === 'boolean' ? c.pago : st === 'PAGO';
+          return { ...c, pagamento: pg, pagamentoStatus: st, pago };
+        });
+      }
+    } catch {}
 
     // Retornar somente o documento leve da sessão, sem cruzar com pedidos
     const tc: TotalsCents = open.totalsCents || {};
@@ -136,6 +153,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // só permite fechar se não houver pedidos em andamento na sessão atual
       const pendentes = await (await getDb()).collection('pedidos').countDocuments({ sessionId: open.sessionId, status: { $in: ['EM_AGUARDO','EM_PREPARO','PRONTO','EM_ROTA'] } });
       if (pendentes > 0) return res.status(409).json({ error: 'existem pedidos em andamento na sessão atual' });
+      const pagamentosPendentes = await (await getDb()).collection('pedidos').countDocuments({
+        sessionId: open.sessionId,
+        pagamentoStatus: 'PENDENTE',
+        status: { $ne: 'CANCELADO' },
+      });
+      if (pagamentosPendentes > 0) {
+        return res.status(409).json({ error: 'há pagamentos pendentes nesta sessão. Confirme antes de fechar.' });
+      }
       await col.updateOne({ sessionId: open.sessionId }, { $set: { closedAt: now, closedBy: access, paused: false } });
       await writeLog({ access, action: 403, desc: `Caixa fechado: ${open.sessionId}`, ref: { caixaId: open.sessionId } });
       return res.status(200).json({ status: 'FECHADO' });
